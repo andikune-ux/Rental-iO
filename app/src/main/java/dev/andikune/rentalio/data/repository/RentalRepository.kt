@@ -34,7 +34,7 @@ class RentalRepository(
                 id = 1,
                 remainingTimeSeconds = 3600L,
                 isExpired = false,
-                localAdminPinHash = "8899",
+                localAdminPinHash = "123456",
                 whitelistPackages = "com.dts.freefireth,com.mobile.legends,com.tencent.ig,com.miHoYo.GenshinImpact,com.activision.callofduty.shooter"
             )
             dao.insertOrUpdate(defaultState)
@@ -79,12 +79,13 @@ class RentalRepository(
 
     suspend fun verifyAdminPin(pin: String): Boolean = withContext(Dispatchers.IO) {
         val current = dao.getRentalState() ?: LocalRentalState()
-        // Check either the saved pin or the master override PIN 8899
-        pin == current.localAdminPinHash || pin == "8899"
+        val prefs = dev.andikune.rentalio.data.local.RentalPreferences(context).getSettings()
+        pin == current.localAdminPinHash || pin == prefs.adminPin || pin == "123456"
     }
 
     suspend fun updateAdminPin(newPin: String) = withContext(Dispatchers.IO) {
         dao.updatePin(newPin)
+        dev.andikune.rentalio.data.local.RentalPreferences(context).saveAdminPin(newPin)
     }
 
     suspend fun getWhitelistPackagesList(): List<String> = withContext(Dispatchers.IO) {

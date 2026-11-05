@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -29,22 +30,32 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Accept Android SDK Licenses
-        run: |
-          yes | sdkmanager --licenses || true
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Ensure Permanent Release Keystore Exists
+      - name: Ensure Environment Configuration Files Exist
         run: |
-          if [ -f "app/andikune-release.jks" ]; then
-            echo "Found app/andikune-release.jks in repository."
-            cp app/andikune-release.jks release.keystore
+          touch .env.example
+          if [ ! -f ".env" ]; then
+            cp .env.example .env 2>/dev/null || touch .env
+          fi
+
+      - name: Decode or Generate Release Keystore
+        run: |
+          mkdir -p app
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Decoding Keystore from secret KEYSTORE_BASE64..."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
+          elif [ -f "app/andikune-release.jks" ]; then
+            echo "Using existing app/andikune-release.jks..."
+            cp app/andikune-release.jks app/release.keystore
           elif [ -f "release.keystore" ]; then
-            echo "Found release.keystore in root."
-            cp release.keystore app/andikune-release.jks
+            echo "Using root release.keystore..."
+            cp release.keystore app/release.keystore
           else
-            echo "Generating permanent andikune release keystore..."
+            echo "Generating fallback release keystore..."
             keytool -genkeypair -v \
-              -keystore app/andikune-release.jks \
+              -keystore app/release.keystore \
               -alias andikune \
               -keyalg RSA \
               -keysize 2048 \
@@ -52,43 +63,44 @@ jobs:
               -storepass andikune \
               -keypass andikune \
               -dname "CN=Andi Kune, OU=RentalIO, O=Andikune UX, L=Jakarta, C=ID"
-            cp app/andikune-release.jks release.keystore
           fi
-          echo "Keystore verified successfully."
+          echo "Keystore verified at app/release.keystore."
 
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x gradlew
 
       - name: Build Release APK
         env:
+          KEYSTORE_FILE: app/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'andikune' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'andikune' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'andikune' }}
         run: |
           ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Locate & Rename Release APK
+      - name: Locate & Prepare Release APK
         run: |
           mkdir -p output_apk
           find app/build/outputs/apk/release/ -name "*.apk" -exec cp {} output_apk/Rental.iO-release.apk \;
-          echo "Generated APK:"
+          echo "Generated APK file:"
           ls -lh output_apk/Rental.iO-release.apk
 
-      - name: Create GitHub Release and Upload Asset
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rental.iO-release-apk
+          path: output_apk/Rental.iO-release.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           files: output_apk/Rental.iO-release.apk
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
-          name: "Rental.iO Release"
+          name: ${{ startsWith(github.ref, 'refs/tags/') && format('Rental.iO Release {0}', github.ref_name) || 'Rental.iO Latest Build' }}
           generate_release_notes: true
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Rental.iO-release-apk
-          path: output_apk/Rental.iO-release.apk

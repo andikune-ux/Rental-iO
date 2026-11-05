@@ -116,8 +116,8 @@ class AppCarouselAdapter(
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(14f)
                 setColor(if (isFocused) Color.parseColor("#18FFFFFF") else Color.TRANSPARENT)
-                val strokeColor = if (isFocused) glowColor else Color.parseColor("#1FFFFFFF")
-                val strokeWidth = if (isFocused) dpToPx(2f).toInt() else dpToPx(1f).toInt()
+                val strokeColor = if (isFocused) glowColor else Color.TRANSPARENT
+                val strokeWidth = if (isFocused) dpToPx(2f).toInt() else 0
                 setStroke(strokeWidth, strokeColor)
             }
             viewGlowBorder.background = borderDrawable

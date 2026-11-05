@@ -28,10 +28,12 @@ android {
     create("release") {
       val defaultKeystore = file("${rootDir}/app/andikune-release.jks")
       val rootKeystore = file("${rootDir}/release.keystore")
+      val appReleaseKeystore = file("${rootDir}/app/release.keystore")
       val envKeystore = (System.getenv("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_PATH"))?.let { file(it) }
 
       storeFile = when {
         envKeystore != null && envKeystore.exists() -> envKeystore
+        appReleaseKeystore.exists() -> appReleaseKeystore
         defaultKeystore.exists() -> defaultKeystore
         rootKeystore.exists() -> rootKeystore
         else -> defaultKeystore

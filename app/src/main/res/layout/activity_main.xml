@@ -48,14 +48,14 @@
                 android:contentDescription="@null"
                 android:scaleType="fitXY" />
 
-            <!-- Vertical C-Shape Coverflow Container (Default visible) -->
+            <!-- Vertical C-Shape Coverflow Container (Default hidden: alpha 0, invisible) -->
             <FrameLayout
                 android:id="@+id/fl_left_carousel_container"
                 android:layout_width="320dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="52dp"
-                android:alpha="1"
-                android:visibility="visible"
+                android:alpha="0"
+                android:visibility="invisible"
                 android:clipChildren="false"
                 android:clipToPadding="false">
 

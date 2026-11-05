@@ -11,12 +11,12 @@
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
-    <!-- Thin Dynamic Glow Border Penanda (No solid background) -->
+    <!-- Dynamic Glow Border Penanda (Drawn dynamically on focus; completely transparent by default) -->
     <View
         android:id="@+id/view_item_glow_border"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/bg_carousel_item_glass" />
+        android:background="@android:color/transparent" />
 
     <!-- Horizontal Content: [ Icon Kiri ] + [ Nama App Kanan ] -->
     <LinearLayout

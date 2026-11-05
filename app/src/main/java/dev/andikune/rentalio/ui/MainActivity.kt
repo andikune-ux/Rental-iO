@@ -105,7 +105,7 @@ class MainActivity : ComponentActivity() {
     private var currentGlowColor: Int = GlassColors.AccentGlow.toArgb()
     private var glowAnimator: ValueAnimator? = null
     private var lastSnappedPosition: Int = -1
-    private var isCarouselOpen: Boolean = true
+    private var isCarouselOpen: Boolean = false
     private var hasInitializedCarousel: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -662,19 +662,16 @@ fun RightPanelAndOverlays(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // Floating Glowing Icon
+                    // Floating Glowing Icon (Free-floating, no border or box)
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(CircleShape)
-                            .liquidGlass(cornerRadius = 36.dp, isSelected = true)
+                        modifier = Modifier.size(72.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.PlayCircleFilled,
+                            imageVector = Icons.Default.Gamepad,
                             contentDescription = activeApp?.label ?: "Game",
                             tint = GlassColors.AccentGlow,
-                            modifier = Modifier.size(46.dp)
+                            modifier = Modifier.size(56.dp)
                         )
                     }
 

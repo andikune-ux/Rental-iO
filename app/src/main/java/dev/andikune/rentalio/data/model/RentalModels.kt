@@ -75,5 +75,27 @@ data class RentalUiState(
     val showUpdateDialog: Boolean = false,
     val updateRelease: GitHubRelease? = null,
     val downloadProgress: Int = -1,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    // Phase 2 additions:
+    val isUnlimitedMode: Boolean = false,
+    val unlimitedElapsedSeconds: Long = 0L,
+    val packageHours: Int = 1,
+    val packageMinutes: Int = 0,
+    val bonusMinutes: Int = 0,
+    val rentalName: String = "UNE RENTAL HP",
+    val phoneLabel: String = "HP NO. 1",
+    val bannerTexts: List<String> = listOf(
+        "Rental HP murah 30 menit 3ribu aja 😆",
+        "Rental HP murah 60 Menit 5ribu aja 😁",
+        "Mohon menggunakan HP rental dengan hati-hati..."
+    ),
+    val batteryLevel: Int = 100,
+    val isCharging: Boolean = false,
+    val batteryTemperature: Float = 30.0f,
+    val isOverheated: Boolean = false,
+    val isBatteryLow: Boolean = false,
+    val networkStatus: String = "WIFI",
+    val showUnlimitedSummaryDialog: Boolean = false,
+    val unlimitedSummarySeconds: Long = 0L,
+    val unlimitedSummaryCost: Long = 0L
 )
