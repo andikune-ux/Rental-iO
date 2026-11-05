@@ -30,8 +30,13 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK Environment & Permissions
+        run: |
+          echo "ANDROID_HOME is located at: $ANDROID_HOME"
+          # Pastikan permissions runner user memiliki akses tulis ke SDK folder
+          sudo chown -R $USER:$USER $ANDROID_HOME 2>/dev/null || true
+          # Accept semua lisensi SDK yang diperlukan
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
 
       - name: Ensure Environment Configuration Files Exist
         run: |
