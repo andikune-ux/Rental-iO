@@ -2,6 +2,8 @@ name: Rental.iO Release Pipeline
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -27,8 +29,9 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | sdkmanager --licenses || true
 
       - name: Decode Release Keystore
         env:
@@ -37,14 +40,14 @@ jobs:
         run: |
           KEY_DATA="${KEYSTORE_BASE64:-$DEFAULT_KEYSTORE_BASE64}"
           echo "$KEY_DATA" | base64 --decode > app/release.keystore
-          echo "Release keystore ready at app/release.keystore"
+          echo "$KEY_DATA" | base64 --decode > release.keystore
+          echo "Release keystores ready."
 
       - name: Grant Execute Permission for Gradle Wrapper
-        run: chmod +x gradlew || true
+        run: chmod +x gradlew
 
       - name: Build Release APK
         env:
-          KEYSTORE_FILE: "release.keystore"
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'andikune' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'andikune' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'andikune' }}
@@ -59,10 +62,11 @@ jobs:
 
       - name: Create GitHub Release and Upload Asset
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           files: output_apk/Rental.iO-release.apk
-          name: "Rental.iO ${{ github.ref_name }}"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
+          name: "Rental.iO Release"
           generate_release_notes: true
           draft: false
           prerelease: false
