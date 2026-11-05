@@ -1,0 +1,6 @@
+{
+  "name": "Rental.iO",
+  "description": "Kiosk Mode Android Home Launcher for gaming phone rentals with Gyroscope 3D Parallax and multi-tenant management",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

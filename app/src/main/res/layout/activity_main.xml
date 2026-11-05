@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_kiosk_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050810"
+    tools:context="dev.andikune.rentalio.ui.MainActivity">
+
+    <!-- 3D Parallax Gaming Background Wallpaper with oversized bounds to accommodate smooth sensor translation -->
+    <ImageView
+        android:id="@+id/iv_parallax_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="-40dp"
+        android:contentDescription="@string/app_name"
+        android:scaleType="centerCrop"
+        android:src="@drawable/img_gaming_wallpaper" />
+
+    <!-- Dark Liquid Glass Atmosphere Overlay from HOME.iO-TV -->
+    <View
+        android:id="@+id/view_vignette_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80050810" />
+
+    <!-- Interactive Kiosk UI Layer (Left App Carousel, Right Action Panel & Neon Timer) -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/compose_kiosk_ui"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</FrameLayout>
