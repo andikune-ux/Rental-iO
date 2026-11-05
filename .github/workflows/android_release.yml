@@ -33,22 +33,6 @@ jobs:
         run: |
           yes | sdkmanager --licenses || true
 
-      - name: Prepare Release Keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -di > release.keystore || true
-          fi
-          if [ ! -s release.keystore ]; then
-            echo "Generating official 'andikune' release keystore..."
-            keytool -genkey -v -keystore release.keystore -alias andikune -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass andikune -keypass andikune -dname "CN=Andi Kune, OU=RentalIO, O=Andikune UX, L=Jakarta, C=ID"
-          fi
-          cp release.keystore app/release.keystore
-          echo "Keystore successfully prepared:"
-          ls -la release.keystore app/release.keystore
-
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x gradlew
 

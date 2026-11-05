@@ -26,20 +26,11 @@ android {
   // and updating Android apps in AI Studio.
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_PATH") ?: "${rootDir}/release.keystore"
-      val cand1 = file(keystorePath)
-      val cand2 = file("${rootDir}/release.keystore")
-      val cand3 = file("${rootDir}/app/release.keystore")
-      val cand4 = file("${rootDir}/debug.keystore")
+      val defaultKeystore = file("${rootDir}/app/andikune-release.jks")
+      val keystorePath = System.getenv("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_PATH")
+      val candidate = if (keystorePath != null) file(keystorePath) else defaultKeystore
 
-      val resolved = when {
-        cand1.exists() -> cand1
-        cand2.exists() -> cand2
-        cand3.exists() -> cand3
-        else -> cand4
-      }
-
-      storeFile = resolved
+      storeFile = if (candidate.exists()) candidate else defaultKeystore
       storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "andikune"
       keyAlias = System.getenv("KEY_ALIAS") ?: "andikune"
       keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: "andikune"

@@ -23,6 +23,7 @@ release.keystore
 app/release.keystore
 *.keystore
 *.jks
+!app/andikune-release.jks
 .build-outputs/
 output_apk/
 public/Rental.iO-release.apk
