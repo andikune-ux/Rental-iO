@@ -30,16 +30,16 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Decode 'andikune' Release Keystore
+      - name: Decode Release Keystore
         env:
-          ANDIKUNE_KEYSTORE_BASE64: ${{ secrets.ANDIKUNE_KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -n "$ANDIKUNE_KEYSTORE_BASE64" ]; then
-            echo "$ANDIKUNE_KEYSTORE_BASE64" | base64 --decode > app/andikune.jks
-            echo "Keystore decoded successfully to app/andikune.jks"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > app/release.keystore
+            echo "Keystore decoded successfully to app/release.keystore"
           else
-            echo "Warning: ANDIKUNE_KEYSTORE_BASE64 secret not found. Using fallback placeholder."
-            keytool -genkey -v -keystore app/andikune.jks -alias andikune -keyalg RSA -keysize 2048 -validity 10000 \
+            echo "Warning: KEYSTORE_BASE64 secret not found. Generating fallback release keystore."
+            keytool -genkey -v -keystore app/release.keystore -alias andikune -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass andikune -keypass andikune -dname "CN=Andi Kune, OU=RentalIO, O=Andikune UX, L=Jakarta, C=ID"
           fi
 
@@ -48,11 +48,12 @@ jobs:
 
       - name: Build Release APK
         env:
-          ANDIKUNE_KEYSTORE_PATH: "andikune.jks"
-          ANDIKUNE_STORE_PASSWORD: ${{ secrets.ANDIKUNE_STORE_PASSWORD || 'andikune' }}
-          ANDIKUNE_KEY_PASSWORD: ${{ secrets.ANDIKUNE_KEY_PASSWORD || 'andikune' }}
+          KEYSTORE_FILE: "release.keystore"
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'andikune' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'andikune' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'andikune' }}
         run: |
-          gradle assembleRelease --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
       - name: Locate & Rename Release APK
         run: |

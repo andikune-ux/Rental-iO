@@ -17,14 +17,14 @@
         android:scaleType="centerCrop"
         android:src="@drawable/img_gaming_wallpaper" />
 
-    <!-- 2. Dark Liquid Glass Atmosphere Overlay -->
+    <!-- 2. Clean Ambient Vignette (Transparent Atmosphere) -->
     <View
         android:id="@+id/view_vignette_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#80050810" />
+        android:background="#4D050810" />
 
-    <!-- 3. Main Landscape Content: Left Panel (C-Shape Carousel) + Right Panel (Compose UI) -->
+    <!-- 3. Main Landscape Layout: Left Side (Toggle Button + Curved Carousel) & Right Side (Compose UI) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -32,41 +32,63 @@
         android:orientation="horizontal"
         android:padding="16dp">
 
-        <!-- [ PANEL KIRI - 3D CURVED CAROUSEL & DYNAMIC GLOW CONTAINER ] -->
+        <!-- Left Container: Houses the floating toggle button & C-Shape Curved Carousel -->
         <FrameLayout
-            android:id="@+id/fl_left_carousel_container"
-            android:layout_width="340dp"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_marginEnd="16dp"
-            android:clipChildren="false"
-            android:clipToPadding="false">
+            android:layout_marginEnd="12dp">
 
-            <!-- Dynamic Radial Gradient Glow Layer behind the glass (Palette API driven) -->
+            <!-- Dynamic Radial Gradient Glow Layer behind the carousel (Palette API driven) -->
             <ImageView
                 android:id="@+id/iv_panel_radial_glow"
-                android:layout_width="match_parent"
+                android:layout_width="320dp"
                 android:layout_height="match_parent"
-                android:layout_margin="-20dp"
-                android:alpha="0.85"
+                android:layout_marginStart="48dp"
+                android:alpha="0.80"
                 android:contentDescription="@null"
                 android:scaleType="fitXY" />
 
-            <!-- Frosted Liquid Glass Panel Frame -->
-            <View
-                android:id="@+id/view_left_panel_glass"
-                android:layout_width="match_parent"
+            <!-- Vertical C-Shape Coverflow Container (Default alpha 0f / hidden) -->
+            <FrameLayout
+                android:id="@+id/fl_left_carousel_container"
+                android:layout_width="320dp"
                 android:layout_height="match_parent"
-                android:background="@drawable/bg_carousel_item_glass" />
-
-            <!-- Vertical C-Shape Coverflow RecyclerView -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_app_carousel"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_marginStart="52dp"
+                android:alpha="0"
+                android:visibility="invisible"
                 android:clipChildren="false"
-                android:clipToPadding="false"
-                android:overScrollMode="never"
-                android:scrollbars="none" />
+                android:clipToPadding="false">
+
+                <!-- Vertical C-Shape Coverflow RecyclerView -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_app_carousel"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:overScrollMode="never"
+                    android:scrollbars="none" />
+
+            </FrameLayout>
+
+            <!-- Floating Toggle Button at KIRI TENGAH with Liquid Glass outline & Apps Grid Icon -->
+            <FrameLayout
+                android:id="@+id/btn_toggle_carousel"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="start|center_vertical"
+                android:background="@drawable/bg_carousel_item_glass"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/iv_toggle_icon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Daftar Aplikasi"
+                    android:src="@drawable/ic_apps_grid" />
+            </FrameLayout>
 
         </FrameLayout>
 

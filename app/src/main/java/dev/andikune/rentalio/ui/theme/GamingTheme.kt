@@ -16,33 +16,33 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Liquid Glass Theme ported directly from andikune-ux/HOME.iO-TV (GlassColors & liquidGlass modifier)
+ * Clean Liquid Glass Theme (Transparent Fill, Thin Glowing Outline)
  */
 object GlassColors {
     val DeepBackground = Color(0xFF050810)
     val DeepBackgroundGradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF0A0E1A), Color(0xFF0F172A), Color(0xFF050810))
     )
-    val GlassTint = Color(0x1AFFFFFF)
-    val GlassTintLighter = Color(0x33FFFFFF)
-    val GlassSolidFallback = Color(0xE60F172A)
+    val GlassTint = Color(0x0DFFFFFF)
+    val GlassTintLighter = Color(0x1AFFFFFF)
+    val GlassSolidFallback = Color(0x0AFFFFFF) // Transparent Clean Overlay
     val GlassBorder = Color(0x26FFFFFF)
     val AccentGlow = Color(0xFF4DA3FF) // Frost Sapphire Blue
     val AccentGlowLight = Color(0xFF80C3FF)
     val TextPrimary = Color(0xFFF8FAFC)
     val TextSecondary = Color(0xFF94A3B8)
-    val SurfaceDark = Color(0xFF1E293B)
+    val SurfaceDark = Color(0xFF0F172A)
     val AccentGreen = Color(0xFF10B981) // Emerald Green
     val AccentRed = Color(0xFFEF4444)   // Ruby Red
     val AccentAmber = Color(0xFFF59E0B) // Amber
     val AccentCyan = Color(0xFF38BDF8)
     val AccentPurple = Color(0xFF818CF8)
 
-    // Compatibility mappings for existing components
+    // Compatibility mappings
     val DeepBlack = DeepBackground
     val DarkSurface = SurfaceDark
     val SurfaceCard = GlassSolidFallback
-    val SurfaceCardGlass = Color(0xD90F172A)
+    val SurfaceCardGlass = Color(0x0DFFFFFF)
     val NeonCyan = AccentGlow
     val NeonMagenta = AccentPurple
     val NeonGreen = AccentGreen
@@ -68,15 +68,18 @@ object GlassColors {
 
 typealias GamingColors = GlassColors
 
+/**
+ * Liquid Glass modifier: Only thin border with transparent interior
+ */
 fun Modifier.liquidGlass(
     cornerRadius: Dp = 20.dp,
     isSelected: Boolean = false,
     borderWidth: Dp = 1.dp
 ): Modifier {
     val shape = RoundedCornerShape(cornerRadius)
-    val backgroundColor = if (isSelected) Color(0xCC1E293B) else GlassColors.GlassSolidFallback
+    val backgroundColor = if (isSelected) Color(0x1A4DA3FF) else Color(0x08FFFFFF)
     val currentBorderColor = if (isSelected) GlassColors.AccentGlow else GlassColors.GlassBorder
-    val effectiveBorderWidth = if (isSelected) 2.dp else borderWidth
+    val effectiveBorderWidth = if (isSelected) 1.5.dp else borderWidth
 
     return this
         .clip(shape)
@@ -85,7 +88,7 @@ fun Modifier.liquidGlass(
                 Modifier.drawBehind {
                     drawRect(
                         brush = Brush.radialGradient(
-                            colors = listOf(GlassColors.AccentGlow.copy(alpha = 0.25f), Color.Transparent),
+                            colors = listOf(GlassColors.AccentGlow.copy(alpha = 0.20f), Color.Transparent),
                             radius = size.maxDimension * 0.8f
                         )
                     )
