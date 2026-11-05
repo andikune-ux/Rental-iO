@@ -460,7 +460,7 @@ fun RealTimeClockWidget(modifier: Modifier = Modifier) {
         }
     }
 
-    val locale = Locale("id", "ID")
+    val locale = remember { Locale.forLanguageTag("id-ID") }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d MMM", locale) }
     val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm:ss", locale) }
 
