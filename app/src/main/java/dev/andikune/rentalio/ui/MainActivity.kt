@@ -38,8 +38,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayCircleFilled
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -103,7 +105,8 @@ class MainActivity : ComponentActivity() {
     private var currentGlowColor: Int = GlassColors.AccentGlow.toArgb()
     private var glowAnimator: ValueAnimator? = null
     private var lastSnappedPosition: Int = -1
-    private var isCarouselOpen: Boolean = false
+    private var isCarouselOpen: Boolean = true
+    private var hasInitializedCarousel: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -189,7 +192,6 @@ class MainActivity : ComponentActivity() {
                 viewModel.launchSelectedApp(this@MainActivity)
             } else {
                 // Posisi pinggir -> scroll ke tengah
-                viewModel.selectApp(app)
                 smoothScrollToCenter(position)
             }
         }
@@ -204,10 +206,12 @@ class MainActivity : ComponentActivity() {
             if (totalHeight > 0) {
                 val itemHeight = totalHeight / 5
                 carouselAdapter.setItemHeight(itemHeight)
-                // Padding ensures any item can snap to the exact center
-                val verticalPadding = itemHeight * 2
-                if (rvAppCarousel.paddingTop != verticalPadding) {
-                    rvAppCarousel.setPadding(0, verticalPadding, 0, verticalPadding)
+                applyCShapeCurve()
+
+                if (!hasInitializedCarousel && carouselAdapter.itemCount > 0) {
+                    hasInitializedCarousel = true
+                    val middleVirtual = carouselAdapter.getInitialCenterPosition()
+                    rvAppCarousel.scrollToPosition(middleVirtual)
                     rvAppCarousel.post {
                         applyCShapeCurve()
                         checkCenterSnappedItem()
@@ -216,38 +220,41 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Apply C-Shape (C Terbalik) transformation dynamically during scrolling
+        // Apply C-Shape transformation dynamically during scrolling
         rvAppCarousel.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 applyCShapeCurve()
-                checkCenterSnappedItem()
             }
 
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                applyCShapeCurve()
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    applyCShapeCurve()
                     checkCenterSnappedItem()
                 }
             }
         })
 
-        // Observe Whitelist Apps from ViewModel
+        // Observe Whitelist Apps from ViewModel (Only reload when app list actually changes)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     val apps = state.whitelistApps
                     if (apps.isNotEmpty()) {
-                        val currentHeight = rvAppCarousel.height
-                        val itemHeight = if (currentHeight > 0) currentHeight / 5 else 0
-                        carouselAdapter.setItems(apps, itemHeight)
+                        val currentItems = carouselAdapter.getItems()
+                        if (currentItems != apps) {
+                            val currentHeight = rvAppCarousel.height
+                            val itemHeight = if (currentHeight > 0) currentHeight / 5 else 0
+                            carouselAdapter.setItems(apps, itemHeight)
 
-                        // Infinite loop initial middle virtual position aligned to modulo 0
-                        val middleVirtual = (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % apps.size)
-                        rvAppCarousel.scrollToPosition(middleVirtual)
-
-                        rvAppCarousel.post {
-                            applyCShapeCurve()
-                            checkCenterSnappedItem()
+                            if (!hasInitializedCarousel && currentHeight > 0) {
+                                hasInitializedCarousel = true
+                                val middleVirtual = carouselAdapter.getInitialCenterPosition()
+                                rvAppCarousel.scrollToPosition(middleVirtual)
+                                rvAppCarousel.post {
+                                    applyCShapeCurve()
+                                    checkCenterSnappedItem()
+                                }
+                            }
                         }
                     }
                 }
@@ -351,8 +358,8 @@ class MainActivity : ComponentActivity() {
                 // a. Animate Layer Radial Gradient Glow on background behind glass
                 updateBackgroundRadialGlow(animatedColor)
 
-                // b. Animate Dynamic Glow & Border on active center item
-                carouselAdapter.updateGlowColorOnly(animatedColor)
+                // b. Direct GPU draw update on active center item border (no notifyItemChanged rebuild)
+                carouselAdapter.updateGlowColorDirectly(rvAppCarousel, animatedColor)
             }
             start()
         }
@@ -599,18 +606,40 @@ fun RightPanelAndOverlays(
                     )
                 }
 
-                IconButton(
-                    onClick = onOpenAdmin,
+                // Prominent Glass Pill Button for Admin Settings (PIN Protected)
+                Box(
                     modifier = Modifier
                         .testTag("admin_settings_button")
-                        .size(38.dp)
+                        .liquidGlass(cornerRadius = 14.dp, isSelected = true)
+                        .clickable(onClick = onOpenAdmin)
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AdminPanelSettings,
-                        contentDescription = "Admin Panel",
-                        tint = GlassColors.TextSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Pengaturan Admin",
+                            tint = GlassColors.AccentGlow,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "PENGATURAN",
+                            color = GlassColors.TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Terkunci PIN",
+                            tint = GlassColors.AccentAmber,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
             }
 

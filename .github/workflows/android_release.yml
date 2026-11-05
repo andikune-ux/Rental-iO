@@ -33,6 +33,29 @@ jobs:
         run: |
           yes | sdkmanager --licenses || true
 
+      - name: Ensure Permanent Release Keystore Exists
+        run: |
+          if [ -f "app/andikune-release.jks" ]; then
+            echo "Found app/andikune-release.jks in repository."
+            cp app/andikune-release.jks release.keystore
+          elif [ -f "release.keystore" ]; then
+            echo "Found release.keystore in root."
+            cp release.keystore app/andikune-release.jks
+          else
+            echo "Generating permanent andikune release keystore..."
+            keytool -genkeypair -v \
+              -keystore app/andikune-release.jks \
+              -alias andikune \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass andikune \
+              -keypass andikune \
+              -dname "CN=Andi Kune, OU=RentalIO, O=Andikune UX, L=Jakarta, C=ID"
+            cp app/andikune-release.jks release.keystore
+          fi
+          echo "Keystore verified successfully."
+
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x gradlew
 

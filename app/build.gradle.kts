@@ -27,10 +27,15 @@ android {
   signingConfigs {
     create("release") {
       val defaultKeystore = file("${rootDir}/app/andikune-release.jks")
-      val keystorePath = System.getenv("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_PATH")
-      val candidate = if (keystorePath != null) file(keystorePath) else defaultKeystore
+      val rootKeystore = file("${rootDir}/release.keystore")
+      val envKeystore = (System.getenv("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_PATH"))?.let { file(it) }
 
-      storeFile = if (candidate.exists()) candidate else defaultKeystore
+      storeFile = when {
+        envKeystore != null && envKeystore.exists() -> envKeystore
+        defaultKeystore.exists() -> defaultKeystore
+        rootKeystore.exists() -> rootKeystore
+        else -> defaultKeystore
+      }
       storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "andikune"
       keyAlias = System.getenv("KEY_ALIAS") ?: "andikune"
       keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: "andikune"

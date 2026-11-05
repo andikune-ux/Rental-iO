@@ -18,6 +18,10 @@ class AppCarouselAdapter(
     private val onItemClick: (WhitelistApp, Int) -> Unit
 ) : RecyclerView.Adapter<AppCarouselAdapter.ViewHolder>() {
 
+    companion object {
+        const val VIRTUAL_CYCLES = 600
+    }
+
     private val items = mutableListOf<WhitelistApp>()
     private var itemHeightPx: Int = 0
     var focusedPosition: Int = -1
@@ -40,6 +44,11 @@ class AppCarouselAdapter(
 
     fun getItems(): List<WhitelistApp> = items
 
+    fun getInitialCenterPosition(): Int {
+        if (items.isEmpty()) return 0
+        return (items.size * (VIRTUAL_CYCLES / 2))
+    }
+
     fun updateFocusedItem(position: Int, glowColor: Int) {
         val prev = focusedPosition
         focusedPosition = position
@@ -48,17 +57,18 @@ class AppCarouselAdapter(
         if (position != -1) notifyItemChanged(position)
     }
 
-    fun updateGlowColorOnly(glowColor: Int) {
+    fun updateGlowColorDirectly(recyclerView: RecyclerView, glowColor: Int) {
         currentGlowColor = glowColor
         if (focusedPosition != -1) {
-            notifyItemChanged(focusedPosition)
+            val holder = recyclerView.findViewHolderForAdapterPosition(focusedPosition) as? ViewHolder
+            holder?.applyGlow(glowColor, isFocused = true)
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_app_carousel, parent, false)
         if (itemHeightPx > 0) {
-            view.layoutParams.height = itemHeightPx
+            view.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, itemHeightPx)
         }
         return ViewHolder(view)
     }
@@ -73,8 +83,8 @@ class AppCarouselAdapter(
         holder.bind(app, position, position == focusedPosition, currentGlowColor)
     }
 
-    // Infinite Virtual Wrap
-    override fun getItemCount(): Int = if (items.isEmpty()) 0 else Int.MAX_VALUE
+    // High virtual wrap for infinite scroll without integer overflow
+    override fun getItemCount(): Int = if (items.isEmpty()) 0 else items.size * VIRTUAL_CYCLES
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val ivAppIcon: ImageView = itemView.findViewById(R.id.iv_app_icon)
@@ -93,22 +103,24 @@ class AppCarouselAdapter(
                 ivAppIcon.setImageResource(R.mipmap.ic_launcher)
             }
 
-            // Outline / Border penanda dinamis saat fokus
-            val borderDrawable = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(14f)
-                setColor(if (isFocused) Color.parseColor("#14FFFFFF") else Color.TRANSPARENT)
-                val strokeColor = if (isFocused) glowColor else Color.parseColor("#1FFFFFFF")
-                val strokeWidth = if (isFocused) dpToPx(2f).toInt() else dpToPx(1f).toInt()
-                setStroke(strokeWidth, strokeColor)
-            }
-            viewGlowBorder.background = borderDrawable
-
+            applyGlow(glowColor, isFocused)
             tvAppName.setTextColor(if (isFocused) Color.WHITE else Color.parseColor("#E2E8F0"))
 
             itemView.setOnClickListener {
                 onItemClick(app, position)
             }
+        }
+
+        fun applyGlow(glowColor: Int, isFocused: Boolean) {
+            val borderDrawable = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(14f)
+                setColor(if (isFocused) Color.parseColor("#18FFFFFF") else Color.TRANSPARENT)
+                val strokeColor = if (isFocused) glowColor else Color.parseColor("#1FFFFFFF")
+                val strokeWidth = if (isFocused) dpToPx(2f).toInt() else dpToPx(1f).toInt()
+                setStroke(strokeWidth, strokeColor)
+            }
+            viewGlowBorder.background = borderDrawable
         }
 
         private fun dpToPx(dp: Float): Float {
