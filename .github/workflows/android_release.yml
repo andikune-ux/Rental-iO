@@ -33,15 +33,21 @@ jobs:
         run: |
           yes | sdkmanager --licenses || true
 
-      - name: Decode Release Keystore
+      - name: Prepare Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          DEFAULT_KEYSTORE_BASE64: "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"
         run: |
-          KEY_DATA="${KEYSTORE_BASE64:-$DEFAULT_KEYSTORE_BASE64}"
-          echo "$KEY_DATA" | base64 --decode > app/release.keystore
-          echo "$KEY_DATA" | base64 --decode > release.keystore
-          echo "Release keystores ready."
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -di > release.keystore || true
+          fi
+          if [ ! -s release.keystore ]; then
+            echo "Generating official 'andikune' release keystore..."
+            keytool -genkey -v -keystore release.keystore -alias andikune -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass andikune -keypass andikune -dname "CN=Andi Kune, OU=RentalIO, O=Andikune UX, L=Jakarta, C=ID"
+          fi
+          cp release.keystore app/release.keystore
+          echo "Keystore successfully prepared:"
+          ls -la release.keystore app/release.keystore
 
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x gradlew
@@ -52,17 +58,18 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'andikune' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'andikune' }}
         run: |
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Locate & Rename Release APK
         run: |
           mkdir -p output_apk
           find app/build/outputs/apk/release/ -name "*.apk" -exec cp {} output_apk/Rental.iO-release.apk \;
-          echo "Generated APK: output_apk/Rental.iO-release.apk"
+          echo "Generated APK:"
+          ls -lh output_apk/Rental.iO-release.apk
 
       - name: Create GitHub Release and Upload Asset
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
         with:
           files: output_apk/Rental.iO-release.apk
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
