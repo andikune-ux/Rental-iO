@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/item_carousel_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="5dp"
+    android:paddingBottom="5dp">
+
+    <!-- Card Background with Frosted Glass & Dynamic Glow Border -->
+    <FrameLayout
+        android:id="@+id/card_glow_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_carousel_item_glass">
+
+        <!-- Dynamic Border Glow Layer (Color modulated dynamically via ValueAnimator & Palette) -->
+        <View
+            android:id="@+id/view_item_glow_border"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_carousel_item_border" />
+
+        <!-- Inner Horizontal Content: [ Icon Kiri ] + [ Nama App Kanan ] -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
+
+            <!-- App Icon with Glass Crest Container -->
+            <FrameLayout
+                android:id="@+id/fl_icon_wrapper"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="14dp"
+                android:background="@drawable/bg_carousel_icon_crest">
+
+                <ImageView
+                    android:id="@+id/iv_app_icon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/app_name"
+                    android:scaleType="fitCenter"
+                    android:src="@mipmap/ic_launcher" />
+            </FrameLayout>
+
+            <!-- App Name & Category Column -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_app_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-black"
+                    android:maxLines="1"
+                    android:textColor="#F8FAFC"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="Free Fire MAX" />
+
+                <TextView
+                    android:id="@+id/tv_app_category"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:textColor="#94A3B8"
+                    android:textSize="11sp"
+                    tools:text="Battle Royale" />
+            </LinearLayout>
+
+            <!-- Center Focus Indicator Dot -->
+            <View
+                android:id="@+id/view_focus_indicator"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:layout_marginStart="8dp"
+                android:alpha="0"
+                android:background="@drawable/bg_focus_indicator_dot" />
+
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>

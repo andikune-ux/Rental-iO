@@ -7,7 +7,7 @@
     android:background="#050810"
     tools:context="dev.andikune.rentalio.ui.MainActivity">
 
-    <!-- 3D Parallax Gaming Background Wallpaper with oversized bounds to accommodate smooth sensor translation -->
+    <!-- 1. 3D Parallax Gaming Wallpaper Layer -->
     <ImageView
         android:id="@+id/iv_parallax_background"
         android:layout_width="match_parent"
@@ -17,17 +17,66 @@
         android:scaleType="centerCrop"
         android:src="@drawable/img_gaming_wallpaper" />
 
-    <!-- Dark Liquid Glass Atmosphere Overlay from HOME.iO-TV -->
+    <!-- 2. Dark Liquid Glass Atmosphere Overlay -->
     <View
         android:id="@+id/view_vignette_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#80050810" />
 
-    <!-- Interactive Kiosk UI Layer (Left App Carousel, Right Action Panel & Neon Timer) -->
-    <androidx.compose.ui.platform.ComposeView
-        android:id="@+id/compose_kiosk_ui"
+    <!-- 3. Main Landscape Content: Left Panel (C-Shape Carousel) + Right Panel (Compose UI) -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:baselineAligned="false"
+        android:orientation="horizontal"
+        android:padding="16dp">
+
+        <!-- [ PANEL KIRI - 3D CURVED CAROUSEL & DYNAMIC GLOW CONTAINER ] -->
+        <FrameLayout
+            android:id="@+id/fl_left_carousel_container"
+            android:layout_width="340dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="16dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <!-- Dynamic Radial Gradient Glow Layer behind the glass (Palette API driven) -->
+            <ImageView
+                android:id="@+id/iv_panel_radial_glow"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_margin="-20dp"
+                android:alpha="0.85"
+                android:contentDescription="@null"
+                android:scaleType="fitXY" />
+
+            <!-- Frosted Liquid Glass Panel Frame -->
+            <View
+                android:id="@+id/view_left_panel_glass"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_carousel_item_glass" />
+
+            <!-- Vertical C-Shape Coverflow RecyclerView -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_app_carousel"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:scrollbars="none" />
+
+        </FrameLayout>
+
+        <!-- [ PANEL KANAN - ACTION & TIMER + OVERLAYS ] -->
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/compose_kiosk_ui"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+    </LinearLayout>
 
 </FrameLayout>
