@@ -24,6 +24,7 @@ app/release.keystore
 *.keystore
 *.jks
 !app/andikune-release.jks
+!app/andikune-release.jks.base64
 .build-outputs/
 output_apk/
 public/Rental.iO-release.apk

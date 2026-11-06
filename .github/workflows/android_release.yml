@@ -45,31 +45,29 @@ jobs:
             cp .env.example .env 2>/dev/null || touch .env
           fi
 
-      - name: Decode or Generate Release Keystore
+      - name: Verify Permanent Release Keystore
         run: |
           mkdir -p app
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "Decoding Keystore from secret KEYSTORE_BASE64..."
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
+          elif [ -n "${{ secrets.ANDIKUNE_KEYSTORE_BASE64 }}" ]; then
+            echo "Decoding Keystore from secret ANDIKUNE_KEYSTORE_BASE64..."
+            echo "${{ secrets.ANDIKUNE_KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
           elif [ -f "app/andikune-release.jks" ]; then
-            echo "Using existing app/andikune-release.jks..."
+            echo "Using permanent app/andikune-release.jks from repository..."
             cp app/andikune-release.jks app/release.keystore
           elif [ -f "release.keystore" ]; then
-            echo "Using root release.keystore..."
+            echo "Using permanent root release.keystore..."
             cp release.keystore app/release.keystore
           else
-            echo "Generating fallback release keystore..."
-            keytool -genkeypair -v \
-              -keystore app/release.keystore \
-              -alias andikune \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass andikune \
-              -keypass andikune \
-              -dname "CN=Andi Kune, OU=RentalIO, O=Andikune UX, L=Jakarta, C=ID"
+            echo "::error ::Permanent release keystore not found! Refusing to build with a temporary keystore to avoid signature mismatch on user app updates."
+            exit 1
           fi
-          echo "Keystore verified at app/release.keystore."
+
+          echo "Verifying permanent keystore integrity..."
+          keytool -list -v -keystore app/release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD || secrets.ANDIKUNE_STORE_PASSWORD || 'andikune' }}" | grep -E "Alias name|SHA256" || true
+          echo "Keystore verified successfully."
 
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x gradlew
@@ -77,9 +75,9 @@ jobs:
       - name: Build Release APK
         env:
           KEYSTORE_FILE: app/release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'andikune' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'andikune' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'andikune' }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || secrets.ANDIKUNE_STORE_PASSWORD || 'andikune' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || secrets.ANDIKUNE_KEY_ALIAS || 'andikune' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || secrets.ANDIKUNE_KEY_PASSWORD || 'andikune' }}
         run: |
           ./gradlew assembleRelease --no-daemon --stacktrace
 
