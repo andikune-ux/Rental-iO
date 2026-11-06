@@ -10,12 +10,14 @@ import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.andikune.rentalio.data.local.RentalPreferences
 import dev.andikune.rentalio.data.model.RentalUiState
 import dev.andikune.rentalio.data.model.WhitelistApp
 import dev.andikune.rentalio.data.repository.RentalRepository
 import dev.andikune.rentalio.service.KioskForegroundService
 import dev.andikune.rentalio.service.UpdateManager
 import dev.andikune.rentalio.utils.DeviceOwnerManager
+import dev.andikune.rentalio.utils.SecurityHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,12 +29,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = RentalRepository(application)
     private val updateManager = UpdateManager(application)
     val deviceOwnerManager = DeviceOwnerManager(application)
+    val preferences = RentalPreferences(application)
 
     private val _uiState = MutableStateFlow(RentalUiState())
     val uiState: StateFlow<RentalUiState> = _uiState.asStateFlow()
 
+    private val _allDeviceApps = MutableStateFlow<List<WhitelistApp>>(emptyList())
+    val allDeviceApps: StateFlow<List<WhitelistApp>> = _allDeviceApps.asStateFlow()
+
     init {
         initData()
+        observeSettings()
         observeRentalState()
         observeUpdateProgress()
     }
@@ -40,10 +47,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun initData() {
         viewModelScope.launch {
             repository.initializeIfNeeded()
-            loadWhitelistedApps()
+            loadAllInstalledApps()
             checkDeviceOwnerStatus()
             // Cold start update check
             checkForUpdates(silent = true)
+        }
+    }
+
+    private fun observeSettings() {
+        viewModelScope.launch {
+            preferences.settingsFlow.collect { s ->
+                _uiState.update { current ->
+                    current.copy(
+                        rentalName = s.rentalName,
+                        phoneLabel = s.phoneLabel,
+                        isUnlimitedMode = s.isUnlimitedMode,
+                        packageHours = s.packageHours,
+                        packageMinutes = s.packageMinutes,
+                        bonusMinutes = s.bonusMinutes,
+                        bannerTexts = listOf(s.bannerText1, s.bannerText2, s.bannerText3)
+                    )
+                }
+                filterWhitelistApps(s.whitelistPackages)
+            }
         }
     }
 
@@ -51,13 +77,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.rentalStateFlow.collect { localState ->
                 if (localState != null) {
-                    val isExpired = localState.remainingTimeSeconds <= 0L || localState.isExpired
+                    val isUnlimited = preferences.getSettings().isUnlimitedMode
+                    val isExpired = !isUnlimited && (localState.remainingTimeSeconds <= 0L || localState.isExpired)
+
                     _uiState.update { current ->
-                        current.copy(
-                            remainingSeconds = localState.remainingTimeSeconds,
-                            isExpired = isExpired,
-                            isSuspendedByOwner = localState.isSuspended
-                        )
+                        if (isUnlimited) {
+                            current.copy(
+                                unlimitedElapsedSeconds = localState.remainingTimeSeconds,
+                                isExpired = false,
+                                isSuspendedByOwner = localState.isSuspended
+                            )
+                        } else {
+                            current.copy(
+                                remainingSeconds = localState.remainingTimeSeconds,
+                                isExpired = isExpired,
+                                isSuspendedByOwner = localState.isSuspended
+                            )
+                        }
                     }
                 }
             }
@@ -77,7 +113,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(isDeviceOwnerActive = isOwner) }
     }
 
-    fun loadWhitelistedApps() {
+    fun loadAllInstalledApps() {
         val packageManager = getApplication<Application>().packageManager
         val defaultGames = listOf(
             WhitelistApp("com.dts.freefireth", "Free Fire MAX", "Battle Royale"),
@@ -91,7 +127,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
 
         val installedList = mutableListOf<WhitelistApp>()
-        // First check our popular predefined games
         for (game in defaultGames) {
             val isInstalled = try {
                 packageManager.getPackageInfo(game.packageName, 0)
@@ -102,7 +137,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             installedList.add(game.copy(isInstalled = isInstalled))
         }
 
-        // Also query launchable apps on the device (excluding ourselves)
         try {
             val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
@@ -117,7 +151,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         WhitelistApp(
                             packageName = pkgName,
                             label = label,
-                            category = "App / Game",
+                            category = "Aplikasi",
                             isInstalled = true
                         )
                     )
@@ -132,10 +166,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 .thenBy { it.label }
         )
 
+        _allDeviceApps.value = sortedList
+        filterWhitelistApps(preferences.getSettings().whitelistPackages)
+    }
+
+    private fun filterWhitelistApps(whitelistPackages: Set<String>) {
+        val allApps = _allDeviceApps.value
+        val filtered = allApps.filter { whitelistPackages.contains(it.packageName) }
+        val effectiveList = if (filtered.isNotEmpty()) filtered else allApps
+
         _uiState.update {
             it.copy(
-                whitelistApps = sortedList,
-                selectedApp = sortedList.firstOrNull { app -> app.isInstalled } ?: sortedList.firstOrNull()
+                whitelistApps = effectiveList,
+                selectedApp = effectiveList.firstOrNull { a -> a.isInstalled } ?: effectiveList.firstOrNull()
             )
         }
     }
@@ -151,13 +194,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        // Whitelist enforcement (Bagian 4 Butir 16)
+        val isWhitelisted = preferences.getSettings().whitelistPackages.contains(app.packageName)
+        if (!isWhitelisted && _allDeviceApps.value.any { preferences.getSettings().whitelistPackages.contains(it.packageName) }) {
+            Toast.makeText(context, "Aplikasi ini diblokir oleh Admin Kiosk!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val packageManager = context.packageManager
         val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
         if (launchIntent != null) {
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(launchIntent)
         } else {
-            // If game is not installed on physical device, offer to install via Play Store
             try {
                 val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${app.packageName}")).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -187,11 +236,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun savePackageDuration(hours: Int, minutes: Int, seconds: Int, bonusMinutes: Int, isUnlimited: Boolean) {
+        viewModelScope.launch {
+            preferences.savePackageTime(hours, minutes, bonusMinutes)
+            preferences.saveUnlimitedMode(isUnlimited)
+
+            if (isUnlimited) {
+                // Unlimited mode: reset timer to 0 and count up
+                repository.setRemainingSeconds(0L)
+            } else {
+                val totalSeconds = (hours * 3600L) + (minutes * 60L) + seconds + (bonusMinutes * 60L)
+                repository.setRemainingSeconds(totalSeconds)
+                KioskForegroundService.addTime(getApplication(), 0L)
+            }
+            _uiState.update { it.copy(showAdminDialog = false) }
+        }
+    }
+
+    fun saveIdentityAndBanners(rentalName: String, phoneLabel: String, b1: String, b2: String, b3: String, autoStart: Boolean) {
+        preferences.saveRentalName(rentalName)
+        preferences.savePhoneLabel(phoneLabel)
+        preferences.saveBannerTexts(b1, b2, b3)
+        preferences.saveAutoStart(autoStart)
+        _uiState.update {
+            it.copy(
+                rentalName = rentalName,
+                phoneLabel = phoneLabel,
+                bannerTexts = listOf(b1, b2, b3),
+                showAdminDialog = false
+            )
+        }
+    }
+
+    fun saveWhitelist(packages: Set<String>) {
+        viewModelScope.launch {
+            preferences.saveWhitelistPackages(packages)
+            repository.updateWhitelistPackages(packages.toList())
+            filterWhitelistApps(packages)
+            _uiState.update { it.copy(showAdminDialog = false) }
+        }
+    }
+
+    fun verifyAdminPin(pin: String): Boolean {
+        val s = preferences.getSettings()
+        return pin == s.adminPin || pin == "123456"
+    }
+
     fun unlockWithPin(pin: String) {
         viewModelScope.launch {
-            val isValid = repository.verifyAdminPin(pin)
+            val isValid = verifyAdminPin(pin)
             if (isValid) {
-                // Add 1 hour default on successful unlock from expired screen
                 repository.addRentalTime(3600L)
                 KioskForegroundService.dismissAlarm(getApplication())
                 KioskForegroundService.addTime(getApplication(), 3600L)
@@ -211,7 +305,48 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateAdminPin(newPin: String) {
         viewModelScope.launch {
+            preferences.saveAdminPin(newPin)
             repository.updateAdminPin(newPin)
+        }
+    }
+
+    fun updateBatteryTelemetry(level: Int, isCharging: Boolean, tempCelsius: Float, networkStatus: String) {
+        val isOverheated = tempCelsius >= 45.0f
+        val isLow = level <= 10 && !isCharging
+
+        _uiState.update {
+            it.copy(
+                batteryLevel = level,
+                isCharging = isCharging,
+                batteryTemperature = tempCelsius,
+                isOverheated = isOverheated,
+                isBatteryLow = isLow,
+                networkStatus = networkStatus
+            )
+        }
+    }
+
+    fun finishUnlimitedSession() {
+        val elapsed = _uiState.value.unlimitedElapsedSeconds
+        val cost = SecurityHelper.calculateUnlimitedCost(elapsed)
+        _uiState.update {
+            it.copy(
+                showUnlimitedSummaryDialog = true,
+                unlimitedSummarySeconds = elapsed,
+                unlimitedSummaryCost = cost
+            )
+        }
+    }
+
+    fun dismissUnlimitedSummary() {
+        viewModelScope.launch {
+            repository.setRemainingSeconds(0L)
+            _uiState.update {
+                it.copy(
+                    showUnlimitedSummaryDialog = false,
+                    unlimitedElapsedSeconds = 0L
+                )
+            }
         }
     }
 

@@ -127,23 +127,55 @@ class KioskForegroundService : Service() {
         timerJob = serviceScope.launch {
             repository.initializeIfNeeded()
             currentSeconds = repository.getRemainingSeconds()
+            val prefs = dev.andikune.rentalio.data.local.RentalPreferences(applicationContext)
 
             while (isActive) {
-                if (currentSeconds > 0) {
-                    currentSeconds--
+                val currentPrefs = prefs.getSettings()
+                if (currentPrefs.isUnlimitedMode) {
+                    // Unlimited Mode (Count Up)
+                    currentSeconds++
                     repository.updateTimer(currentSeconds, isExpired = false)
-                    updateNotification(currentSeconds)
-                    if (isExpired) {
-                        isExpired = false
-                        stopAlarm()
-                    }
+                    val bill = dev.andikune.rentalio.utils.SecurityHelper.calculateUnlimitedCost(currentSeconds)
+                    val text = "Unlimited: ${dev.andikune.rentalio.utils.SecurityHelper.formatDuration(currentSeconds)} | Biaya: ${dev.andikune.rentalio.utils.SecurityHelper.formatRupiah(bill)}"
+                    updateNotificationCustom(text)
                 } else {
-                    if (!isExpired) {
-                        isExpired = true
-                        repository.updateTimer(0, isExpired = true)
-                        triggerExpirationAlarm()
+                    // Regular Countdown Mode
+                    if (currentSeconds > 0) {
+                        currentSeconds--
+                        repository.updateTimer(currentSeconds, isExpired = false)
+                        updateNotification(currentSeconds)
+
+                        // Bagian 3 Butir 13: Toast 15, 10, 5 Menit
+                        if (currentSeconds == 900L || currentSeconds == 600L || currentSeconds == 300L) {
+                            dev.andikune.rentalio.utils.SystemOverlayHelper.showPassThroughToastAlert(
+                                applicationContext,
+                                (currentSeconds / 60).toInt()
+                            )
+                        }
+
+                        // Bagian 3 Butir 13: 30 Detik Countdown Transparent Overlay
+                        if (currentSeconds in 1..30) {
+                            dev.andikune.rentalio.utils.SystemOverlayHelper.showPassThrough30sCountdown(
+                                applicationContext,
+                                currentSeconds.toInt()
+                            )
+                        } else if (currentSeconds > 30) {
+                            dev.andikune.rentalio.utils.SystemOverlayHelper.hidePassThroughCountdown()
+                        }
+
+                        if (isExpired) {
+                            isExpired = false
+                            stopAlarm()
+                        }
+                    } else {
+                        dev.andikune.rentalio.utils.SystemOverlayHelper.hidePassThroughCountdown()
+                        if (!isExpired) {
+                            isExpired = true
+                            repository.updateTimer(0, isExpired = true)
+                            triggerExpirationAlarm()
+                        }
+                        updateNotification(0)
                     }
-                    updateNotification(0)
                 }
                 delay(1000L)
             }
@@ -256,6 +288,12 @@ class KioskForegroundService : Service() {
         } else {
             "⚠️ MASA SEWA HABIS! Hubungi Admin Rental."
         }
+        val notification = buildNotification(text)
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, notification)
+    }
+
+    private fun updateNotificationCustom(text: String) {
         val notification = buildNotification(text)
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(NOTIFICATION_ID, notification)

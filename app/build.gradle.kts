@@ -16,8 +16,12 @@ android {
     applicationId = "dev.andikune.rentalio"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+
+    val runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: System.getenv("BUILD_NUMBER"))?.toIntOrNull() ?: 2
+    val releaseTag = System.getenv("RELEASE_VERSION") ?: System.getenv("RELEASE_TAG") ?: "1.1"
+
+    versionCode = runNumber
+    versionName = releaseTag.trimStart('v', 'V')
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

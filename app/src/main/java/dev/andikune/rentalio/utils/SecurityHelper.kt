@@ -24,4 +24,31 @@ object SecurityHelper {
         val secs = seconds % 60
         return "%02d:%02d:%02d".format(hours, minutes, secs)
     }
+
+    /**
+     * Sesuai Bagian 6 (Sistem Harga):
+     * 1 jam penuh (60 mnt) = Rp 5.000
+     * Sisa menit = Rp 100 / menit
+     * Bonus menit = Rp 0 (gratis)
+     */
+    fun calculateRegularCost(hours: Int, minutes: Int): Long {
+        val fullHoursCost = hours.coerceAtLeast(0) * 5000L
+        val minutesCost = minutes.coerceAtLeast(0) * 100L
+        return fullHoursCost + minutesCost
+    }
+
+    /**
+     * Sesuai Bagian 7 (Tagihan Unlimited):
+     * Total Menit * Rp 100
+     */
+    fun calculateUnlimitedCost(seconds: Long): Long {
+        val totalMinutes = seconds.coerceAtLeast(0L) / 60L
+        return totalMinutes * 100L
+    }
+
+    fun formatRupiah(amount: Long): String {
+        val formatter = java.text.NumberFormat.getNumberInstance(java.util.Locale.forLanguageTag("id-ID"))
+        return "Rp ${formatter.format(amount)}"
+    }
 }
+

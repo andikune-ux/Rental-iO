@@ -1,25 +1,39 @@
 package dev.andikune.rentalio.ui
 
 import android.animation.ValueAnimator
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
+import androidx.compose.ui.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -33,12 +47,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.BatteryAlert
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SignalCellularAlt
+import androidx.compose.material.icons.filled.SignalCellularConnectedNoInternet0Bar
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -51,15 +80,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -74,9 +110,12 @@ import dev.andikune.rentalio.ui.components.AdminDashboardDialog
 import dev.andikune.rentalio.ui.components.GameOverOverlay
 import dev.andikune.rentalio.ui.components.NeonTimerWidget
 import dev.andikune.rentalio.ui.components.UpdateDialog
+import dev.andikune.rentalio.ui.theme.GamingColors
 import dev.andikune.rentalio.ui.theme.GlassColors
 import dev.andikune.rentalio.ui.theme.RentalIOGamingTheme
 import dev.andikune.rentalio.ui.theme.liquidGlass
+import dev.andikune.rentalio.utils.SecurityHelper
+import dev.andikune.rentalio.utils.SystemOverlayHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -102,11 +141,57 @@ class MainActivity : ComponentActivity() {
     private var lastSnappedPosition: Int = -1
     private var isCarouselOpen: Boolean = false
     private var hasInitializedCarousel: Boolean = false
+    private var hasNotifiedNinetyPercent: Boolean = false
+
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                val batteryPct = if (level >= 0 && scale > 0) (level * 100 / scale) else 100
+
+                val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
+
+                val tempRaw = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 300)
+                val tempCelsius = tempRaw / 10.0f
+
+                val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                val netStatus = if (cm != null) {
+                    val activeNetwork = cm.activeNetwork
+                    val caps = cm.getNetworkCapabilities(activeNetwork)
+                    when {
+                        caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> "WIFI"
+                        caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "CELLULAR"
+                        else -> "NONE"
+                    }
+                } else "WIFI"
+
+                viewModel.updateBatteryTelemetry(batteryPct, isCharging, tempCelsius, netStatus)
+
+                // Bagian 5 Butir 20: Peringatan cabut charger saat baterai 90%
+                if (isCharging && batteryPct >= 90 && !hasNotifiedNinetyPercent) {
+                    hasNotifiedNinetyPercent = true
+                    Toast.makeText(
+                        this@MainActivity,
+                        "⚠️ Baterai sudah mencapai 90%, harap cabut charger untuk menjaga kesehatan baterai.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else if (!isCharging) {
+                    hasNotifiedNinetyPercent = false
+                }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // Bagian 1 Butir 3: Fullscreen Immersive Sticky
+        applyFullscreenImmersive()
 
         setContentView(R.layout.activity_main)
 
@@ -116,6 +201,9 @@ class MainActivity : ComponentActivity() {
         btnToggleCarousel = findViewById(R.id.btn_toggle_carousel)
         rvAppCarousel = findViewById(R.id.rv_app_carousel)
         val composeKioskUi = findViewById<ComposeView>(R.id.compose_kiosk_ui)
+
+        // Request overlay permission if needed for 15/10/5m toast & 30s countdown
+        SystemOverlayHelper.requestOverlayPermission(this)
 
         // 1. Gyroscope 3D Parallax Background
         gyroscopeHelper = GyroscopeHelper(this, maxOffsetPx = 45f)
@@ -128,22 +216,77 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 2. Setup Vertical C-Shape (C Terbalik) Carousel & Infinite Loop
+        // 2. Setup Vertical C-Shape Carousel
         setupCurvedCarousel()
 
-        // 3. Floating Toggle Button Logic (Kiri Tengah)
+        // 3. Floating Toggle Button Logic
         setupToggleCarouselButton()
 
         // 4. Start Persistent Kiosk Foreground Service
         KioskForegroundService.start(this)
 
-        // 5. Setup Right Panel Compose UI Layer
+        // 5. Setup Compose UI Layer
         setupRightPanelCompose(composeKioskUi)
 
-        // Initial default radial glow (hidden until carousel opens)
+        // Register Battery & Thermal telemetry receiver
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+
+        // Initial default radial glow
         ivPanelRadialGlow.alpha = 0f
         ivPanelRadialGlow.visibility = View.INVISIBLE
         updateBackgroundRadialGlow(currentGlowColor)
+    }
+
+    // Bagian 1 Butir 3: Fullscreen Immersive Mode
+    private fun applyFullscreenImmersive() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyFullscreenImmersive()
+        }
+    }
+
+    // Bagian 5 Butir 17: Blokir Tombol Hardware (Power & Volume)
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        val state = viewModel.uiState.value
+        // Jika dialog admin terbuka, biarkan tombol volume berfungsi
+        if (state.showAdminDialog) {
+            return super.onKeyDown(keyCode, event)
+        }
+
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP,
+            KeyEvent.KEYCODE_VOLUME_DOWN,
+            KeyEvent.KEYCODE_VOLUME_MUTE -> {
+                // Blokir pengaturan volume oleh penyewa
+                return true
+            }
+            KeyEvent.KEYCODE_POWER -> {
+                // Intersepsi tombol power untuk mencegah bypass
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        val state = viewModel.uiState.value
+        if (!state.showAdminDialog) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP,
+                KeyEvent.KEYCODE_VOLUME_DOWN,
+                KeyEvent.KEYCODE_VOLUME_MUTE -> {
+                    return true
+                }
+            }
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     private fun setupToggleCarouselButton() {
@@ -199,11 +342,9 @@ class MainActivity : ComponentActivity() {
             val currentCenterPosition = if (currentCenterView != null) layoutManager.getPosition(currentCenterView) else -1
 
             if (position == currentCenterPosition || position == lastSnappedPosition) {
-                // Posisi tengah (fokus utama) -> langsung luncurkan aplikasi
                 viewModel.selectApp(app)
                 viewModel.launchSelectedApp(this@MainActivity)
             } else {
-                // Posisi pinggir -> scroll ke tengah
                 smoothScrollToCenter(position)
             }
         }
@@ -271,12 +412,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Mathematical C-Shape Transformation (C Terbalik / Kurva `)` ):
-     * - Tombol pemicu di kiri luar layar.
-     * - Aplikasi di posisi tengah (fokus utama): paling dekat ke tombol (translationX = 0f, scale = 1.0f, alpha = 1.0f).
-     * - Aplikasi di atas & bawah: mundur ke KANAN (translationX positif) dan mengecil (bentuk kurva ).
-     */
     private fun applyCShapeCurve() {
         val rvHeight = rvAppCarousel.height
         if (rvHeight <= 0) return
@@ -359,16 +494,18 @@ class MainActivity : ComponentActivity() {
         carouselAdapter.updateFocusedItem(lastSnappedPosition, targetColor)
     }
 
+    // Bagian 1 Butir 1: Radial natural background glow tanpa batas kotak
     private fun updateBackgroundRadialGlow(color: Int) {
         val width = ivPanelRadialGlow.width.takeIf { it > 0 } ?: 320
         val gradient = GradientDrawable().apply {
             gradientType = GradientDrawable.RADIAL_GRADIENT
-            gradientRadius = width * 0.95f
-            setGradientCenter(0.5f, 0.5f)
+            gradientRadius = width * 1.4f
+            setGradientCenter(0.45f, 0.5f)
             colors = intArrayOf(
-                ColorUtils.setAlphaComponent(color, 90),
-                ColorUtils.setAlphaComponent(color, 30),
-                Color.TRANSPARENT
+                ColorUtils.setAlphaComponent(color, 85),
+                ColorUtils.setAlphaComponent(color, 45),
+                ColorUtils.setAlphaComponent(color, 15),
+                android.graphics.Color.TRANSPARENT
             )
         }
         ivPanelRadialGlow.setImageDrawable(gradient)
@@ -398,12 +535,15 @@ class MainActivity : ComponentActivity() {
         composeKioskUi.setContent {
             RentalIOGamingTheme {
                 val state by viewModel.uiState.collectAsState()
+                val allApps by viewModel.allDeviceApps.collectAsState()
 
                 BackHandler(enabled = true) {
                     if (state.showAdminDialog) {
                         viewModel.dismissAdminDialog()
                     } else if (state.showUpdateDialog) {
                         viewModel.dismissUpdateDialog()
+                    } else if (state.showUnlimitedSummaryDialog) {
+                        viewModel.dismissUnlimitedSummary()
                     } else if (isCarouselOpen) {
                         toggleCarouselVisibility()
                     }
@@ -411,17 +551,29 @@ class MainActivity : ComponentActivity() {
 
                 RightPanelAndOverlays(
                     state = state,
+                    allApps = allApps,
+                    currentSettings = viewModel.preferences.getSettings(),
                     onLaunchApp = { viewModel.launchSelectedApp(this@MainActivity) },
                     onOpenAdmin = { viewModel.openAdminDialog() },
                     onCheckUpdate = { viewModel.checkForUpdates(silent = false) },
                     onAddTime = { viewModel.addRentalTime(it) },
                     onSetTime = { viewModel.setRentalTime(it) },
+                    onSaveDuration = { h, m, s, b, unlim ->
+                        viewModel.savePackageDuration(h, m, s, b, unlim)
+                    },
+                    onSaveIdentity = { rName, pLabel, b1, b2, b3, auto ->
+                        viewModel.saveIdentityAndBanners(rName, pLabel, b1, b2, b3, auto)
+                    },
+                    onSaveWhitelist = { viewModel.saveWhitelist(it) },
+                    onVerifyPin = { viewModel.verifyAdminPin(it) },
                     onToggleLockTask = { viewModel.toggleLockTask(it, this@MainActivity) },
                     onChangePin = { viewModel.updateAdminPin(it) },
                     onDismissAdmin = { viewModel.dismissAdminDialog() },
                     onUnlockWithPin = { viewModel.unlockWithPin(it) },
                     onUpdateNow = { viewModel.downloadAndInstallUpdate() },
-                    onLaterUpdate = { viewModel.dismissUpdateDialog() }
+                    onLaterUpdate = { viewModel.dismissUpdateDialog() },
+                    onFinishUnlimited = { viewModel.finishUnlimitedSession() },
+                    onDismissSummary = { viewModel.dismissUnlimitedSummary() }
                 )
             }
         }
@@ -429,6 +581,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        applyFullscreenImmersive()
         gyroscopeHelper.startListening()
         viewModel.checkDeviceOwnerStatus()
         rvAppCarousel.post {
@@ -440,14 +593,90 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         gyroscopeHelper.stopListening()
     }
+
+    override fun onDestroy() {
+        try {
+            unregisterReceiver(batteryReceiver)
+        } catch (_: Exception) {}
+        super.onDestroy()
+    }
+}
+
+/**
+ * Custom Status Bar (Bagian 1 Butir 3):
+ * Battery percentage, charging status icon, and Wi-Fi / Cellular connection icon
+ */
+@Composable
+fun CustomStatusBar(
+    batteryLevel: Int,
+    isCharging: Boolean,
+    networkStatus: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0x33000000))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        // Network Icon
+        when (networkStatus) {
+            "WIFI" -> Icon(
+                imageVector = Icons.Default.Wifi,
+                contentDescription = "Wi-Fi",
+                tint = GlassColors.AccentCyan,
+                modifier = Modifier.size(16.dp)
+            )
+            "CELLULAR" -> Icon(
+                imageVector = Icons.Default.SignalCellularAlt,
+                contentDescription = "Seluler",
+                tint = GlassColors.AccentGreen,
+                modifier = Modifier.size(16.dp)
+            )
+            else -> Icon(
+                imageVector = Icons.Default.WifiOff,
+                contentDescription = "Offline",
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+
+        // Battery Icon & Percentage
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val batteryColor = when {
+                isCharging -> GlassColors.AccentCyan
+                batteryLevel <= 15 -> GlassColors.AccentRed
+                batteryLevel <= 30 -> GlassColors.AccentAmber
+                else -> GlassColors.AccentGreen
+            }
+
+            Icon(
+                imageVector = when {
+                    isCharging -> Icons.Default.BatteryChargingFull
+                    batteryLevel <= 15 -> Icons.Default.BatteryAlert
+                    else -> Icons.Default.BatteryFull
+                },
+                contentDescription = "Baterai",
+                tint = batteryColor,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = "$batteryLevel%",
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
 }
 
 /**
  * RealTimeClockWidget:
  * Real-time clock at TOP-RIGHT, updating per second via LaunchedEffect + delay(1000)
- * Line 1: Hari, Tanggal ("Senin, 12 Okt")
- * Line 2: Jam ("14:30:00")
- * Locale Indonesia, floating freely without background box.
  */
 @Composable
 fun RealTimeClockWidget(modifier: Modifier = Modifier) {
@@ -472,7 +701,7 @@ fun RealTimeClockWidget(modifier: Modifier = Modifier) {
         Text(
             text = currentTime.format(dateFormatter),
             color = GlassColors.TextSecondary,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             softWrap = false
@@ -480,7 +709,7 @@ fun RealTimeClockWidget(modifier: Modifier = Modifier) {
         Text(
             text = currentTime.format(timeFormatter),
             color = GlassColors.AccentGlow,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
             letterSpacing = 0.5.sp,
@@ -490,74 +719,75 @@ fun RealTimeClockWidget(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Clean Right Panel & System Overlays Composable:
- * - Clean Overlay: No solid black boxes
- * - Header: "RENTAL.IO" and Kiosk Status Chip separated with Spacer(weight(1f))
- * - RealTimeClockWidget next to Settings/Admin buttons
- * - Center Game Preview: Floating freely without card borders, tap to launch
- * - NeonTimerWidget: Vertical digital clock
- */
 @Composable
 fun RightPanelAndOverlays(
     state: RentalUiState,
+    allApps: List<dev.andikune.rentalio.data.model.WhitelistApp>,
+    currentSettings: dev.andikune.rentalio.data.local.RentalPreferences.SettingsData,
     onLaunchApp: () -> Unit,
     onOpenAdmin: () -> Unit,
     onCheckUpdate: () -> Unit,
     onAddTime: (Long) -> Unit,
     onSetTime: (Long) -> Unit,
+    onSaveDuration: (hours: Int, minutes: Int, seconds: Int, bonusMinutes: Int, isUnlimited: Boolean) -> Unit,
+    onSaveIdentity: (rentalName: String, phoneLabel: String, banner1: String, banner2: String, banner3: String, autoStart: Boolean) -> Unit,
+    onSaveWhitelist: (Set<String>) -> Unit,
+    onVerifyPin: (String) -> Boolean,
     onToggleLockTask: (Boolean) -> Unit,
     onChangePin: (String) -> Unit,
     onDismissAdmin: () -> Unit,
     onUnlockWithPin: (String) -> Unit,
     onUpdateNow: () -> Unit,
-    onLaterUpdate: () -> Unit
+    onLaterUpdate: () -> Unit,
+    onFinishUnlimited: () -> Unit,
+    onDismissSummary: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. Top Header: Separated Brand, Status Chip, RealTimeClockWidget & Actions (No enclosing solid box)
+            // 1. Top Header: Custom Rental Name, Status Chips, Custom Battery/Network Status Bar, Clock & Admin Button
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 // Brand Crest
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(38.dp)
-                        .liquidGlass(cornerRadius = 12.dp, isSelected = true)
+                        .size(36.dp)
+                        .liquidGlass(cornerRadius = 10.dp, isSelected = true)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Gamepad,
-                        contentDescription = "Rental.iO",
+                        contentDescription = "Rental",
                         tint = GlassColors.AccentGlow,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
+                // Bagian 2 Butir 8: Custom Rental Name
                 Column {
                     Text(
-                        text = "RENTAL.IO",
+                        text = state.rentalName.ifBlank { "RENTAL.IO" },
                         color = GlassColors.TextPrimary,
-                        fontSize = 17.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.5.sp,
+                        letterSpacing = 1.2.sp,
                         maxLines = 1,
                         softWrap = false
                     )
                     Text(
-                        text = "Liquid Glass Edition",
-                        color = GlassColors.TextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = state.phoneLabel.ifBlank { "HP NO. 1" },
+                        color = GlassColors.AccentGreen,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         softWrap = false
                     )
@@ -565,24 +795,24 @@ fun RightPanelAndOverlays(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Kiosk Status Chip (Outline only)
+                // Kiosk Status Chip
                 Box(
                     modifier = Modifier
-                        .liquidGlass(cornerRadius = 10.dp, isSelected = false)
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .liquidGlass(cornerRadius = 8.dp, isSelected = false)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = if (state.isDeviceOwnerActive) Icons.Default.Security else Icons.Default.CloudOff,
                             contentDescription = null,
                             tint = if (state.isDeviceOwnerActive) GlassColors.AccentGreen else GlassColors.AccentAmber,
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier.size(12.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (state.isDeviceOwnerActive) "KIOSK ON" else "OFFLINE",
+                            text = if (state.isDeviceOwnerActive) "KIOSK ON" else "STANDBY",
                             color = if (state.isDeviceOwnerActive) GlassColors.AccentGreen else GlassColors.AccentAmber,
-                            fontSize = 10.sp,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             softWrap = false
@@ -590,22 +820,31 @@ fun RightPanelAndOverlays(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
-                // RealTimeClockWidget (Floating freely, id-ID Locale, per second)
+                // Bagian 1 Butir 3: Custom Status Bar (Baterai & Koneksi Jaringan)
+                CustomStatusBar(
+                    batteryLevel = state.batteryLevel,
+                    isCharging = state.isCharging,
+                    networkStatus = state.networkStatus
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                // RealTimeClockWidget
                 RealTimeClockWidget()
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 IconButton(
                     onClick = onCheckUpdate,
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.SystemUpdate,
                         contentDescription = "Cek Update",
                         tint = GlassColors.AccentGlow,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -613,25 +852,48 @@ fun RightPanelAndOverlays(
                     onClick = onOpenAdmin,
                     modifier = Modifier
                         .testTag("admin_settings_button")
-                        .size(38.dp)
+                        .size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.AdminPanelSettings,
                         contentDescription = "Admin Panel",
                         tint = GlassColors.TextSecondary,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            // 2. Center: Game Preview (Floating Freely Without Box / Border)
+            // Low Battery Alert Banner (Bagian 5 Butir 19)
+            if (state.isBatteryLow) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xD9B91C1C))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.BatteryAlert, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "PERINGATAN: Baterai tinggal ${state.batteryLevel}%! Harap hubungi admin rental untuk mengisi daya.",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // 2. Center: Game Preview (Floating Freely, tap to launch)
             val activeApp = state.selectedApp
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(24.dp)
+                    .padding(16.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -639,65 +901,230 @@ fun RightPanelAndOverlays(
                     )
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(64.dp)) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(58.dp)) {
                         Icon(
                             imageVector = Icons.Default.Gamepad,
                             contentDescription = activeApp?.label ?: "Game",
                             tint = GlassColors.AccentGlow,
-                            modifier = Modifier.size(54.dp)
+                            modifier = Modifier.size(48.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = activeApp?.label ?: "Pilih Game",
                         color = GlassColors.TextPrimary,
-                        fontSize = 24.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = activeApp?.packageName ?: "dev.andikune.rentalio",
-                        color = GlassColors.AccentGlow,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Normal
+                        text = "Sentuh untuk meluncurkan game",
+                        color = GlassColors.TextSecondary,
+                        fontSize = 11.sp
                     )
                 }
             }
 
-            // 3. Digital Clock Vertical Clean Timer Widget
-            NeonTimerWidget(
-                remainingSeconds = state.remainingSeconds,
-                isExpired = state.isExpired,
+            // 3. NeonTimerWidget: Unlimited / Regular countdown
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp)
-            )
+                    .padding(bottom = 12.dp)
+            ) {
+                NeonTimerWidget(
+                    remainingSeconds = state.remainingSeconds,
+                    isExpired = state.isExpired,
+                    isUnlimitedMode = state.isUnlimitedMode,
+                    unlimitedElapsedSeconds = state.unlimitedElapsedSeconds,
+                    packageHours = state.packageHours,
+                    packageMinutes = state.packageMinutes,
+                    bonusMinutes = state.bonusMinutes
+                )
+
+                // If Unlimited Mode is running, provide a quick finish button for Admin
+                if (state.isUnlimitedMode) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = onFinishUnlimited,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xCC0E1726),
+                            contentColor = GamingColors.NeonCyan
+                        ),
+                        border = BorderStroke(1.dp, GamingColors.NeonCyan.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("SELESAIKAN SEWA UNLIMITED", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
 
-        // Fullscreen Blocking Overlay when rental expired
+        // Bagian 5 Butir 18: Fullscreen Overheat Blocking Overlay (>45°C)
+        if (state.isOverheated) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xF27F1D1D))
+                    .padding(24.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalFireDepartment,
+                        contentDescription = "Overheat",
+                        tint = Color.Yellow,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = "PERINGATAN SUHU TINGGI (>45°C)!",
+                        color = Color.Yellow,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "CABUT CHARGER SEKARANG DEMI KEAMANAN PERANGKAT!",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Suhu Baterai: ${state.batteryTemperature}°C | Status Pengisian: ${if (state.isCharging) "Mengecas" else "Tidak Mengecas"}",
+                        color = Color.LightGray,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+
+        // Fullscreen Blocking GameOverOverlay when rental expired (Bagian 1 Butir 2 & 5)
         AnimatedVisibility(
-            visible = state.isExpired,
+            visible = state.isExpired && !state.isUnlimitedMode,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
             GameOverOverlay(
+                phoneLabel = state.phoneLabel,
+                bannerTexts = state.bannerTexts,
                 onUnlockWithPin = onUnlockWithPin,
                 errorMessage = state.errorMessage
             )
         }
 
+        // Bagian 7 Butir 23: Tagihan Unlimited Summary Dialog
+        if (state.showUnlimitedSummaryDialog) {
+            Dialog(onDismissRequest = onDismissSummary) {
+                Box(
+                    modifier = Modifier
+                        .width(420.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFF0F172A))
+                        .border(BorderStroke(2.dp, GamingColors.NeonCyan), RoundedCornerShape(18.dp))
+                        .padding(20.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ReceiptLong,
+                            contentDescription = null,
+                            tint = GamingColors.NeonCyan,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "RINGKASAN SEWA UNLIMITED",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF1E293B))
+                                .padding(14.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Perangkat:", color = GamingColors.TextSecondary, fontSize = 12.sp)
+                                    Text(state.phoneLabel, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Total Waktu:", color = GamingColors.TextSecondary, fontSize = 12.sp)
+                                    Text(SecurityHelper.formatDuration(state.unlimitedSummarySeconds), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Tarif / Menit:", color = GamingColors.TextSecondary, fontSize = 12.sp)
+                                    Text("Rp 100", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("TOTAL TAGIHAN:", color = GamingColors.NeonCyan, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text(SecurityHelper.formatRupiah(state.unlimitedSummaryCost), color = GamingColors.NeonGreen, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = onDismissSummary,
+                            colors = ButtonDefaults.buttonColors(containerColor = GamingColors.NeonCyan, contentColor = Color.Black),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("SELESAI & BAYAR", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+        }
+
         // Admin Dashboard Dialog
         if (state.showAdminDialog) {
             AdminDashboardDialog(
-                remainingSeconds = state.remainingSeconds,
+                currentSettings = currentSettings,
+                allInstalledApps = allApps,
                 isDeviceOwner = state.isDeviceOwnerActive,
                 isLockTaskActive = state.isLockTaskModeActive,
+                onSaveDuration = onSaveDuration,
+                onSaveIdentity = onSaveIdentity,
+                onSaveWhitelist = onSaveWhitelist,
                 onAddTime = onAddTime,
                 onSetTime = onSetTime,
                 onToggleLockTask = onToggleLockTask,
                 onChangePin = onChangePin,
                 onCheckUpdate = onCheckUpdate,
+                onVerifyPin = onVerifyPin,
                 onDismiss = onDismissAdmin
             )
         }
