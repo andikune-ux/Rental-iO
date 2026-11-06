@@ -210,7 +210,10 @@ class MainActivity : ComponentActivity() {
         setupCurvedCarousel()
         setupToggleCarouselButton()
         KioskForegroundService.start(this)
-        setupRightPanelCompose(composeKioskUi)
+        
+        // CEK CRASH LOG SEBELUM MENAMPILKAN UI
+        val crashLog = CrashHandler.getAndClearCrashLog(this)
+        setupRightPanelCompose(composeKioskUi, crashLog)
 
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
@@ -486,62 +489,62 @@ class MainActivity : ComponentActivity() {
         return bitmap
     }
 
-    private fun setupRightPanelCompose(composeKioskUi: ComposeView) {
-        val previousCrashLog = CrashHandler.getAndClearCrashLog(this)
-
+    private fun setupRightPanelCompose(composeKioskUi: ComposeView, crashLog: String?) {
         composeKioskUi.setContent {
             RentalIOGamingTheme {
-                val state by viewModel.uiState.collectAsState()
-                val allApps by viewModel.allDeviceApps.collectAsState()
+                // STATE UNTUK MENAMPILKAN CRASH LOG
+                var showCrashDialog by remember { mutableStateOf(crashLog != null) }
 
-                // State lokal untuk mengontrol visibilitas dialog crash
-                var showCrashDialog by remember { mutableStateOf(previousCrashLog != null) }
-
-                if (showCrashDialog && previousCrashLog != null) {
+                if (showCrashDialog && crashLog != null) {
+                    // TAMPILKAN DIALOG CRASH PALING ATAS
                     CrashLogDialog(
-                        logText = previousCrashLog,
+                        logText = crashLog,
                         onDismiss = { showCrashDialog = false }
                     )
-                }
+                } else {
+                    // JIKA TIDAK ADA CRASH, TAMPILKAN UI NORMAL
+                    val state by viewModel.uiState.collectAsState()
+                    val allApps by viewModel.allDeviceApps.collectAsState()
 
-                BackHandler(enabled = true) {
-                    if (state.showAdminDialog) {
-                        viewModel.dismissAdminDialog()
-                    } else if (state.showUpdateDialog) {
-                        viewModel.dismissUpdateDialog()
-                    } else if (state.showUnlimitedSummaryDialog) {
-                        viewModel.dismissUnlimitedSummary()
-                    } else if (isCarouselOpen) {
-                        toggleCarouselVisibility()
+                    BackHandler(enabled = true) {
+                        if (state.showAdminDialog) {
+                            viewModel.dismissAdminDialog()
+                        } else if (state.showUpdateDialog) {
+                            viewModel.dismissUpdateDialog()
+                        } else if (state.showUnlimitedSummaryDialog) {
+                            viewModel.dismissUnlimitedSummary()
+                        } else if (isCarouselOpen) {
+                            toggleCarouselVisibility()
+                        }
                     }
-                }
 
-                RightPanelAndOverlays(
-                    state = state,
-                    allApps = allApps,
-                    currentSettings = viewModel.preferences.getSettings(),
-                    onLaunchApp = { viewModel.launchSelectedApp(this@MainActivity) },
-                    onOpenAdmin = { viewModel.openAdminDialog() },
-                    onCheckUpdate = { viewModel.checkForUpdates(silent = false) },
-                    onAddTime = { viewModel.addRentalTime(it) },
-                    onSetTime = { viewModel.setRentalTime(it) },
-                    onSaveDuration = { h, m, s, b, unlim ->
-                        viewModel.savePackageDuration(h, m, s, b, unlim)
-                    },
-                    onSaveIdentity = { rName, pLabel, b1, b2, b3, auto ->
-                        viewModel.saveIdentityAndBanners(rName, pLabel, b1, b2, b3, auto)
-                    },
-                    onSaveWhitelist = { viewModel.saveWhitelist(it) },
-                    onVerifyPin = { viewModel.verifyAdminPin(it) },
-                    onToggleLockTask = { viewModel.toggleLockTask(it, this@MainActivity) },
-                    onChangePin = { viewModel.updateAdminPin(it) },
-                    onDismissAdmin = { viewModel.dismissAdminDialog() },
-                    onUnlockWithPin = { viewModel.unlockWithPin(it) },
-                    onUpdateNow = { viewModel.downloadAndInstallUpdate() },
-                    onLaterUpdate = { viewModel.dismissUpdateDialog() },
-                    onFinishUnlimited = { viewModel.finishUnlimitedSession() },
-                    onDismissSummary = { viewModel.dismissUnlimitedSummary() }
-                )
+                    RightPanelAndOverlays(
+                        state = state,
+                        allApps = allApps,
+                        currentSettings = viewModel.preferences.getSettings(),
+                        onLaunchApp = { viewModel.launchSelectedApp(this@MainActivity) },
+                        onOpenAdmin = { viewModel.openAdminDialog() },
+                        onCheckUpdate = { viewModel.checkForUpdates(silent = false) },
+                        onAddTime = { viewModel.addRentalTime(it) },
+                        onSetTime = { viewModel.setRentalTime(it) },
+                        onSaveDuration = { h, m, s, b, unlim ->
+                            viewModel.savePackageDuration(h, m, s, b, unlim)
+                        },
+                        onSaveIdentity = { rName, pLabel, b1, b2, b3, auto ->
+                            viewModel.saveIdentityAndBanners(rName, pLabel, b1, b2, b3, auto)
+                        },
+                        onSaveWhitelist = { viewModel.saveWhitelist(it) },
+                        onVerifyPin = { viewModel.verifyAdminPin(it) },
+                        onToggleLockTask = { viewModel.toggleLockTask(it, this@MainActivity) },
+                        onChangePin = { viewModel.updateAdminPin(it) },
+                        onDismissAdmin = { viewModel.dismissAdminDialog() },
+                        onUnlockWithPin = { viewModel.unlockWithPin(it) },
+                        onUpdateNow = { viewModel.downloadAndInstallUpdate() },
+                        onLaterUpdate = { viewModel.dismissUpdateDialog() },
+                        onFinishUnlimited = { viewModel.finishUnlimitedSession() },
+                        onDismissSummary = { viewModel.dismissUnlimitedSummary() }
+                    )
+                }
             }
         }
     }
