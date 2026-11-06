@@ -9,7 +9,9 @@ object CrashHandler {
     private const val CRASH_FILE_NAME = "crash_log.txt"
 
     fun initialize(context: Context) {
+        val appContext = context.applicationContext
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
                 val sw = StringWriter()
@@ -17,23 +19,25 @@ object CrashHandler {
                 throwable.printStackTrace(pw)
                 val stackTrace = sw.toString()
                 
-                val file = File(context.filesDir, CRASH_FILE_NAME)
+                // Simpan ke file internal aplikasi
+                val file = File(appContext.filesDir, CRASH_FILE_NAME)
                 file.writeText(stackTrace)
             } catch (e: Exception) {
-                // Abaikan jika gagal menyimpan
+                e.printStackTrace()
             }
-            // Lanjutkan crash normal
+            // Lanjutkan crash normal agar sistem tahu aplikasi berhenti
             defaultHandler?.uncaughtException(thread, throwable)
         }
     }
 
     fun getAndClearCrashLog(context: Context): String? {
         val file = File(context.filesDir, CRASH_FILE_NAME)
-        if (file.exists()) {
+        return if (file.exists()) {
             val log = file.readText()
-            file.delete() // Hapus setelah dibaca agar tidak muncul lagi
-            return log
+            file.delete() // Hapus agar tidak muncul berulang
+            log
+        } else {
+            null
         }
-        return null
     }
 }
