@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.compose.ui.graphics.Color
@@ -16,7 +15,6 @@ import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.KeyEvent
@@ -60,10 +58,8 @@ import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SignalCellularAlt
-import androidx.compose.material.icons.filled.SignalCellularConnectedNoInternet0Bar
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
@@ -170,7 +166,6 @@ class MainActivity : ComponentActivity() {
 
                 viewModel.updateBatteryTelemetry(batteryPct, isCharging, tempCelsius, netStatus)
 
-                // Bagian 5 Butir 20: Peringatan cabut charger saat baterai 90%
                 if (isCharging && batteryPct >= 90 && !hasNotifiedNinetyPercent) {
                     hasNotifiedNinetyPercent = true
                     Toast.makeText(
@@ -190,9 +185,7 @@ class MainActivity : ComponentActivity() {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // Bagian 1 Butir 3: Fullscreen Immersive Sticky
         applyFullscreenImmersive()
-
         setContentView(R.layout.activity_main)
 
         ivParallaxBackground = findViewById(R.id.iv_parallax_background)
@@ -202,10 +195,8 @@ class MainActivity : ComponentActivity() {
         rvAppCarousel = findViewById(R.id.rv_app_carousel)
         val composeKioskUi = findViewById<ComposeView>(R.id.compose_kiosk_ui)
 
-        // Request overlay permission if needed for 15/10/5m toast & 30s countdown
         SystemOverlayHelper.requestOverlayPermission(this)
 
-        // 1. Gyroscope 3D Parallax Background
         gyroscopeHelper = GyroscopeHelper(this, maxOffsetPx = 45f)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -216,28 +207,18 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 2. Setup Vertical C-Shape Carousel
         setupCurvedCarousel()
-
-        // 3. Floating Toggle Button Logic
         setupToggleCarouselButton()
-
-        // 4. Start Persistent Kiosk Foreground Service
         KioskForegroundService.start(this)
-
-        // 5. Setup Compose UI Layer
         setupRightPanelCompose(composeKioskUi)
 
-        // Register Battery & Thermal telemetry receiver
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
-        // Initial default radial glow
         ivPanelRadialGlow.alpha = 0f
         ivPanelRadialGlow.visibility = View.INVISIBLE
         updateBackgroundRadialGlow(currentGlowColor)
     }
 
-    // Bagian 1 Butir 3: Fullscreen Immersive Mode
     private fun applyFullscreenImmersive() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
@@ -252,10 +233,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Bagian 5 Butir 17: Blokir Tombol Hardware (Power & Volume)
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         val state = viewModel.uiState.value
-        // Jika dialog admin terbuka, biarkan tombol volume berfungsi
         if (state.showAdminDialog) {
             return super.onKeyDown(keyCode, event)
         }
@@ -263,14 +242,8 @@ class MainActivity : ComponentActivity() {
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP,
             KeyEvent.KEYCODE_VOLUME_DOWN,
-            KeyEvent.KEYCODE_VOLUME_MUTE -> {
-                // Blokir pengaturan volume oleh penyewa
-                return true
-            }
-            KeyEvent.KEYCODE_POWER -> {
-                // Intersepsi tombol power untuk mencegah bypass
-                return true
-            }
+            KeyEvent.KEYCODE_VOLUME_MUTE -> return true
+            KeyEvent.KEYCODE_POWER -> return true
         }
         return super.onKeyDown(keyCode, event)
     }
@@ -281,9 +254,7 @@ class MainActivity : ComponentActivity() {
             when (keyCode) {
                 KeyEvent.KEYCODE_VOLUME_UP,
                 KeyEvent.KEYCODE_VOLUME_DOWN,
-                KeyEvent.KEYCODE_VOLUME_MUTE -> {
-                    return true
-                }
+                KeyEvent.KEYCODE_VOLUME_MUTE -> return true
             }
         }
         return super.onKeyUp(keyCode, event)
@@ -300,34 +271,19 @@ class MainActivity : ComponentActivity() {
         if (isCarouselOpen) {
             flLeftCarouselContainer.visibility = View.VISIBLE
             ivPanelRadialGlow.visibility = View.VISIBLE
-            flLeftCarouselContainer.animate()
-                .alpha(1f)
-                .setDuration(260)
-                .withEndAction {
-                    applyCShapeCurve()
-                    checkCenterSnappedItem()
-                }
-                .start()
-            ivPanelRadialGlow.animate()
-                .alpha(0.80f)
-                .setDuration(260)
-                .start()
+            flLeftCarouselContainer.animate().alpha(1f).setDuration(260).withEndAction {
+                applyCShapeCurve()
+                checkCenterSnappedItem()
+            }.start()
+            ivPanelRadialGlow.animate().alpha(0.80f).setDuration(260).start()
             btnToggleCarousel.animate().scaleX(1.1f).scaleY(1.1f).setDuration(180).start()
         } else {
-            flLeftCarouselContainer.animate()
-                .alpha(0f)
-                .setDuration(220)
-                .withEndAction {
-                    flLeftCarouselContainer.visibility = View.INVISIBLE
-                }
-                .start()
-            ivPanelRadialGlow.animate()
-                .alpha(0f)
-                .setDuration(220)
-                .withEndAction {
-                    ivPanelRadialGlow.visibility = View.INVISIBLE
-                }
-                .start()
+            flLeftCarouselContainer.animate().alpha(0f).setDuration(220).withEndAction {
+                flLeftCarouselContainer.visibility = View.INVISIBLE
+            }.start()
+            ivPanelRadialGlow.animate().alpha(0f).setDuration(220).withEndAction {
+                ivPanelRadialGlow.visibility = View.INVISIBLE
+            }.start()
             btnToggleCarousel.animate().scaleX(1.0f).scaleY(1.0f).setDuration(180).start()
         }
     }
@@ -494,7 +450,6 @@ class MainActivity : ComponentActivity() {
         carouselAdapter.updateFocusedItem(lastSnappedPosition, targetColor)
     }
 
-    // Bagian 1 Butir 1: Radial natural background glow tanpa batas kotak
     private fun updateBackgroundRadialGlow(color: Int) {
         val width = ivPanelRadialGlow.width.takeIf { it > 0 } ?: 320
         val gradient = GradientDrawable().apply {
@@ -602,10 +557,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Custom Status Bar (Bagian 1 Butir 3):
- * Battery percentage, charging status icon, and Wi-Fi / Cellular connection icon
- */
 @Composable
 fun CustomStatusBar(
     batteryLevel: Int,
@@ -621,7 +572,6 @@ fun CustomStatusBar(
             .background(Color(0x33000000))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
-        // Network Icon
         when (networkStatus) {
             "WIFI" -> Icon(
                 imageVector = Icons.Default.Wifi,
@@ -643,7 +593,6 @@ fun CustomStatusBar(
             )
         }
 
-        // Battery Icon & Percentage
         Row(verticalAlignment = Alignment.CenterVertically) {
             val batteryColor = when {
                 isCharging -> GlassColors.AccentCyan
@@ -674,10 +623,6 @@ fun CustomStatusBar(
     }
 }
 
-/**
- * RealTimeClockWidget:
- * Real-time clock at TOP-RIGHT, updating per second via LaunchedEffect + delay(1000)
- */
 @Composable
 fun RealTimeClockWidget(modifier: Modifier = Modifier) {
     var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
@@ -747,14 +692,12 @@ fun RightPanelAndOverlays(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. Top Header: Custom Rental Name, Status Chips, Custom Battery/Network Status Bar, Clock & Admin Button
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
-                // Brand Crest
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -771,7 +714,6 @@ fun RightPanelAndOverlays(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // Bagian 2 Butir 8: Custom Rental Name
                 Column {
                     Text(
                         text = state.rentalName.ifBlank { "RENTAL.IO" },
@@ -795,7 +737,6 @@ fun RightPanelAndOverlays(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Kiosk Status Chip
                 Box(
                     modifier = Modifier
                         .liquidGlass(cornerRadius = 8.dp, isSelected = false)
@@ -822,7 +763,6 @@ fun RightPanelAndOverlays(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // Bagian 1 Butir 3: Custom Status Bar (Baterai & Koneksi Jaringan)
                 CustomStatusBar(
                     batteryLevel = state.batteryLevel,
                     isCharging = state.isCharging,
@@ -831,7 +771,6 @@ fun RightPanelAndOverlays(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // RealTimeClockWidget
                 RealTimeClockWidget()
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -863,7 +802,6 @@ fun RightPanelAndOverlays(
                 }
             }
 
-            // Low Battery Alert Banner (Bagian 5 Butir 19)
             if (state.isBatteryLow) {
                 Box(
                     modifier = Modifier
@@ -886,7 +824,6 @@ fun RightPanelAndOverlays(
                 }
             }
 
-            // 2. Center: Game Preview (Floating Freely, tap to launch)
             val activeApp = state.selectedApp
             Box(
                 contentAlignment = Alignment.Center,
@@ -925,7 +862,6 @@ fun RightPanelAndOverlays(
                 }
             }
 
-            // 3. NeonTimerWidget: Unlimited / Regular countdown
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
@@ -942,7 +878,6 @@ fun RightPanelAndOverlays(
                     bonusMinutes = state.bonusMinutes
                 )
 
-                // If Unlimited Mode is running, provide a quick finish button for Admin
                 if (state.isUnlimitedMode) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Button(
@@ -962,7 +897,6 @@ fun RightPanelAndOverlays(
             }
         }
 
-        // Bagian 5 Butir 18: Fullscreen Overheat Blocking Overlay (>45°C)
         if (state.isOverheated) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -1009,7 +943,6 @@ fun RightPanelAndOverlays(
             }
         }
 
-        // Fullscreen Blocking GameOverOverlay when rental expired (Bagian 1 Butir 2 & 5)
         AnimatedVisibility(
             visible = state.isExpired && !state.isUnlimitedMode,
             enter = fadeIn(),
@@ -1023,7 +956,6 @@ fun RightPanelAndOverlays(
             )
         }
 
-        // Bagian 7 Butir 23: Tagihan Unlimited Summary Dialog
         if (state.showUnlimitedSummaryDialog) {
             Dialog(onDismissRequest = onDismissSummary) {
                 Box(
@@ -1109,7 +1041,6 @@ fun RightPanelAndOverlays(
             }
         }
 
-        // Admin Dashboard Dialog
         if (state.showAdminDialog) {
             AdminDashboardDialog(
                 currentSettings = currentSettings,
@@ -1129,11 +1060,10 @@ fun RightPanelAndOverlays(
             )
         }
 
-        // In-App Update Dialog
         if (state.showUpdateDialog && state.updateRelease != null) {
             UpdateDialog(
                 release = state.updateRelease,
-                downloadProgress = state.downloadProgress,
+                downloadProgress = state.downloadProgress.toFloat(), // <--- PERBAIKAN ERROR DISINI
                 onUpdateClick = onUpdateNow,
                 onLaterClick = onLaterUpdate,
                 onSkipClick = onLaterUpdate
