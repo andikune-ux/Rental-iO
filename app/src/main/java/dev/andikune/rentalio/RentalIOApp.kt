@@ -6,7 +6,7 @@ import dev.andikune.rentalio.utils.CrashHandler
 class RentalIOApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        // Inisialisasi CrashHandler paling awal sebelum apapun dimuat
+        // Inisialisasi CrashHandler sebelum Activity dimuat
         CrashHandler.initialize(this)
     }
 }
