@@ -119,11 +119,10 @@ fun GameOverOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
-                    .weight(1f) // Menggunakan weight 1f agar seimbang
+                    .weight(1f) // Seimbang 50:50
                     .fillMaxHeight()
                     .padding(vertical = 8.dp)
             ) {
-                // Bagian Atas Kiri
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -160,7 +159,6 @@ fun GameOverOverlay(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Label HP
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -209,7 +207,6 @@ fun GameOverOverlay(
                     }
                 }
 
-                // Banner Animasi Bawah Kiri
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -260,7 +257,7 @@ fun GameOverOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .weight(1f) // Seimbang 50:50 dengan kolom kiri
+                    .weight(1f) // Seimbang 50:50
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color(0xE60E1726))
@@ -294,7 +291,6 @@ fun GameOverOverlay(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 6 PIN Dots
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(bottom = 12.dp)
@@ -319,7 +315,6 @@ fun GameOverOverlay(
                     }
                 }
 
-                // 3x4 Numeric Keypad (FLEKSIBEL AGAR TIDAK TERPOTONG)
                 val keys = listOf(
                     listOf("1", "2", "3"),
                     listOf("4", "5", "6"),
@@ -340,8 +335,8 @@ fun GameOverOverlay(
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
-                                        .weight(1f) // INI KUNCI PERBAIKANNYA
-                                        .height(42.dp) // Tinggi tombol
+                                        .weight(1f) // INI KUNCI AGAR TIDAK TERPOTONG
+                                        .height(42.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(
                                             when (key) {
