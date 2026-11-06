@@ -14,8 +14,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
-import dev.andikune.rentalio.R
 
 object SystemOverlayHelper {
 
@@ -42,11 +40,6 @@ object SystemOverlayHelper {
         }
     }
 
-    /**
-     * Bagian 3 Butir 13:
-     * Toast alert di sudut kanan bawah selama 3 detik saat sisa waktu 15, 10, dan 5 menit.
-     * Menggunakan FLAG_NOT_TOUCHABLE dan FLAG_NOT_FOCUSABLE agar sentuhan tembus ke game.
-     */
     fun showPassThroughToastAlert(context: Context, minutesRemaining: Int) {
         if (!canDrawOverlays(context)) return
 
@@ -91,7 +84,6 @@ object SystemOverlayHelper {
 
                 wm.addView(toastView, params)
 
-                // Auto dismiss after 3 seconds
                 handler.postDelayed({
                     try {
                         wm.removeView(toastView)
@@ -101,11 +93,6 @@ object SystemOverlayHelper {
         }
     }
 
-    /**
-     * Bagian 3 Butir 13:
-     * Fullscreen transparent countdown overlay pada sisa 30 detik.
-     * Menggunakan FLAG_NOT_TOUCHABLE dan FLAG_NOT_FOCUSABLE sehingga pengguna tetap bisa main game sampai detik terakhir!
-     */
     fun showPassThrough30sCountdown(context: Context, remainingSeconds: Int) {
         if (!canDrawOverlays(context)) return
 
@@ -116,7 +103,7 @@ object SystemOverlayHelper {
             try {
                 if (countdownOverlayView == null) {
                     val container = FrameLayout(context).apply {
-                        setBackgroundColor(Color.parseColor("#55000000")) // semi-transparent
+                        setBackgroundColor(Color.parseColor("#55000000"))
                     }
 
                     val textView = TextView(context).apply {
@@ -149,8 +136,8 @@ object SystemOverlayHelper {
                         WindowManager.LayoutParams.MATCH_PARENT,
                         WindowManager.LayoutParams.MATCH_PARENT,
                         layoutType,
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or // Tembus Sentuhan
+                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or // Tembus Fokus
                                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                         PixelFormat.TRANSLUCENT
                     )
