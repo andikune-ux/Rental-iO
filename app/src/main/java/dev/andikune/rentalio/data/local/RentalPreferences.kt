@@ -16,7 +16,7 @@ class RentalPreferences(context: Context) {
         val adminPin: String = "123456",
         val isUnlimitedMode: Boolean = false,
         val autoStartOnBoot: Boolean = true,
-        val packageHours: Int = 0, // FIX BUG: Default 0, bukan 1
+        val packageHours: Int = 0,
         val packageMinutes: Int = 0,
         val bonusMinutes: Int = 0,
         val bannerText1: String = "Rental HP murah 30 menit 3ribu aja 😆",
@@ -32,22 +32,28 @@ class RentalPreferences(context: Context) {
     fun getSettings(): SettingsData = loadSettings()
 
     private fun loadSettings(): SettingsData {
-        val rawWhitelist = prefs.getStringSet(KEY_WHITELIST, defaultWhitelist) ?: defaultWhitelist
-        return SettingsData(
-            rentalName = prefs.getString(KEY_RENTAL_NAME, "UNE RENTAL HP") ?: "UNE RENTAL HP",
-            phoneLabel = prefs.getString(KEY_PHONE_LABEL, "HP NO. 1") ?: "HP NO. 1",
-            adminPin = prefs.getString(KEY_ADMIN_PIN, "123456") ?: "123456",
-            isUnlimitedMode = prefs.getBoolean(KEY_UNLIMITED_MODE, false),
-            autoStartOnBoot = prefs.getBoolean(KEY_AUTO_START, true),
-            packageHours = prefs.getInt(KEY_PACKAGE_HOURS, 0), // FIX BUG: Default 0
-            packageMinutes = prefs.getInt(KEY_PACKAGE_MINUTES, 0),
-            bonusMinutes = prefs.getInt(KEY_BONUS_MINUTES, 0),
-            bannerText1 = prefs.getString(KEY_BANNER_1, "Rental HP murah 30 menit 3ribu aja 😆") ?: "Rental HP murah 30 menit 3ribu aja 😆",
-            bannerText2 = prefs.getString(KEY_BANNER_2, "Rental HP murah 60 Menit 5ribu aja 😁") ?: "Rental HP murah 60 Menit 5ribu aja 😁",
-            bannerText3 = prefs.getString(KEY_BANNER_3, "Mohon menggunakan HP rental dengan hati-hati...") ?: "Mohon menggunakan HP rental dengan hati-hati...",
-            whitelistPackages = rawWhitelist,
-            isKioskActive = prefs.getBoolean(KEY_KIOSK_ACTIVE, true)
-        )
+        try {
+            val rawWhitelist = prefs.getStringSet(KEY_WHITELIST, defaultWhitelist) ?: defaultWhitelist
+            return SettingsData(
+                rentalName = prefs.getString(KEY_RENTAL_NAME, "UNE RENTAL HP") ?: "UNE RENTAL HP",
+                phoneLabel = prefs.getString(KEY_PHONE_LABEL, "HP NO. 1") ?: "HP NO. 1",
+                adminPin = prefs.getString(KEY_ADMIN_PIN, "123456") ?: "123456",
+                isUnlimitedMode = prefs.getBoolean(KEY_UNLIMITED_MODE, false),
+                autoStartOnBoot = prefs.getBoolean(KEY_AUTO_START, true),
+                packageHours = prefs.getInt(KEY_PACKAGE_HOURS, 0),
+                packageMinutes = prefs.getInt(KEY_PACKAGE_MINUTES, 0),
+                bonusMinutes = prefs.getInt(KEY_BONUS_MINUTES, 0),
+                bannerText1 = prefs.getString(KEY_BANNER_1, "Rental HP murah 30 menit 3ribu aja 😆") ?: "Rental HP murah 30 menit 3ribu aja 😆",
+                bannerText2 = prefs.getString(KEY_BANNER_2, "Rental HP murah 60 Menit 5ribu aja 😁") ?: "Rental HP murah 60 Menit 5ribu aja 😁",
+                bannerText3 = prefs.getString(KEY_BANNER_3, "Mohon menggunakan HP rental dengan hati-hati...") ?: "Mohon menggunakan HP rental dengan hati-hati...",
+                whitelistPackages = rawWhitelist,
+                isKioskActive = prefs.getBoolean(KEY_KIOSK_ACTIVE, true)
+            )
+        } catch (e: Exception) {
+            // JIKA DATA LAMA RUSAK/BENTROK, RESET KE DEFAULT AGAR TIDAK CRASH
+            prefs.edit().clear().apply()
+            return SettingsData()
+        }
     }
 
     fun saveRentalName(name: String) {
