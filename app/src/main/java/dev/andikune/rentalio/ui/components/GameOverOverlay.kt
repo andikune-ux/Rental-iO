@@ -87,7 +87,6 @@ fun GameOverOverlay(
         label = "redAlpha"
     )
 
-    // Animated Banner Carousel index
     var bannerIndex by remember { mutableIntStateOf(0) }
     val safeBanners = remember(bannerTexts) {
         if (bannerTexts.isEmpty()) listOf("Selamat datang di Rental.iO Gaming Kiosk") else bannerTexts
@@ -108,23 +107,23 @@ fun GameOverOverlay(
             .testTag("game_over_blocking_overlay")
             .fillMaxSize()
             .background(Color(0xFA05080E))
-            .padding(16.dp)
+            .padding(16.dp) 
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Left Column: Warning Info, Phone Label, and Animated Sliding Banner
+            // --- KOLOM KIRI (Peringatan & Banner) ---
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
-                    .weight(1.15f)
+                    .weight(1f) // Menggunakan weight 1f agar seimbang
                     .fillMaxHeight()
                     .padding(vertical = 8.dp)
             ) {
-                // Top Warning Section
+                // Bagian Atas Kiri
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -133,7 +132,7 @@ fun GameOverOverlay(
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
                                 .background(GamingColors.NeonRed.copy(alpha = 0.2f))
                                 .border(BorderStroke(2.dp, GamingColors.NeonRed), shape = CircleShape)
@@ -142,32 +141,32 @@ fun GameOverOverlay(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = "Expired Alert",
                                 tint = GamingColors.NeonRed,
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
                         Text(
                             text = "GAME OVER",
                             color = GamingColors.NeonRed,
-                            fontSize = 28.sp,
+                            fontSize = 26.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace,
-                            letterSpacing = 3.sp,
+                            letterSpacing = 2.sp,
                             modifier = Modifier.alpha(redAlpha)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Phone Label Indicator
+                    // Label HP
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0x3310B981))
                             .border(BorderStroke(1.dp, GlassColors.AccentGreen.copy(alpha = 0.5f)), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -187,7 +186,7 @@ fun GameOverOverlay(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
                         text = "MASA SEWA TELAH HABIS\nSILAKAN HUBUNGI ADMIN RENTAL",
@@ -210,18 +209,18 @@ fun GameOverOverlay(
                     }
                 }
 
-                // Bottom: Animated Sliding Carousel Banner (Bagian 1 Butir 5)
+                // Banner Animasi Bawah Kiri
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xCC0E1726))
                         .border(
                             BorderStroke(1.dp, GamingColors.NeonCyan.copy(alpha = 0.4f)),
-                            RoundedCornerShape(14.dp)
+                            RoundedCornerShape(12.dp)
                         )
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -231,7 +230,7 @@ fun GameOverOverlay(
                             imageVector = Icons.Default.Campaign,
                             contentDescription = "Promo Info",
                             tint = GamingColors.NeonCyan,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         AnimatedContent(
@@ -256,12 +255,12 @@ fun GameOverOverlay(
                 }
             }
 
-            // Right Column: Clean 6-Digit PIN Keypad (Bagian 1 Butir 2 & Bagian 2 Butir 10)
+            // --- KOLOM KANAN (PIN Keypad) ---
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .weight(0.95f)
+                    .weight(1f) // Seimbang 50:50 dengan kolom kiri
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color(0xE60E1726))
@@ -269,35 +268,36 @@ fun GameOverOverlay(
                         BorderStroke(1.dp, GamingColors.NeonRed.copy(alpha = 0.4f)),
                         shape = RoundedCornerShape(16.dp)
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .padding(12.dp) 
                     .verticalScroll(rememberScrollState())
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = "Admin PIN",
                         tint = GamingColors.NeonRed,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "ADMIN MASTER PIN",
                         color = GamingColors.NeonRed,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 1.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // 6 PIN Dots (No PIN hint/leakage)
+                // 6 PIN Dots
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 12.dp)
                 ) {
                     for (i in 0 until 6) {
                         val isFilled = i < enteredPin.length
@@ -319,7 +319,7 @@ fun GameOverOverlay(
                     }
                 }
 
-                // 3x4 Numeric Keypad: Compact, perfectly proportioned for landscape
+                // 3x4 Numeric Keypad (FLEKSIBEL AGAR TIDAK TERPOTONG)
                 val keys = listOf(
                     listOf("1", "2", "3"),
                     listOf("4", "5", "6"),
@@ -328,16 +328,20 @@ fun GameOverOverlay(
                 )
 
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     keys.forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             row.forEach { key ->
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
-                                        .size(width = 56.dp, height = 36.dp)
+                                        .weight(1f) // INI KUNCI PERBAIKANNYA
+                                        .height(42.dp) // Tinggi tombol
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(
                                             when (key) {
@@ -386,13 +390,13 @@ fun GameOverOverlay(
                                             imageVector = Icons.Default.Backspace,
                                             contentDescription = "Hapus",
                                             tint = Color.White,
-                                            modifier = Modifier.size(15.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     } else {
                                         Text(
                                             text = key,
                                             color = if (key == "OK") Color.Black else Color.White,
-                                            fontSize = 14.sp,
+                                            fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
