@@ -18,8 +18,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,10 +100,11 @@ fun AdminDashboardDialog(
 
     var selectedTab by remember { mutableIntStateOf(0) }
 
-    var hoursInput by remember { mutableStateOf(currentSettings.packageHours.toString()) }
-    var minutesInput by remember { mutableStateOf(currentSettings.packageMinutes.toString()) }
+    // PERBAIKAN TIMER: Gunakan .ifBlank { "0" } agar tidak error saat kosong
+    var hoursInput by remember { mutableStateOf(if (currentSettings.packageHours > 0) currentSettings.packageHours.toString() else "0") }
+    var minutesInput by remember { mutableStateOf(if (currentSettings.packageMinutes > 0) currentSettings.packageMinutes.toString() else "0") }
     var secondsInput by remember { mutableStateOf("0") }
-    var bonusMinutesInput by remember { mutableStateOf(currentSettings.bonusMinutes.toString()) }
+    var bonusMinutesInput by remember { mutableStateOf(if (currentSettings.bonusMinutes > 0) currentSettings.bonusMinutes.toString() else "0") }
     var isUnlimitedInput by remember { mutableStateOf(currentSettings.isUnlimitedMode) }
 
     var rentalNameInput by remember { mutableStateOf(currentSettings.rentalName) }
@@ -330,6 +332,7 @@ fun AdminDashboardDialog(
 
                     when (selectedTab) {
                         0 -> {
+                            // UI Waktu
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -446,6 +449,7 @@ fun AdminDashboardDialog(
 
                                 Button(
                                     onClick = {
+                                        // PERBAIKAN MUTLAK BUG TIMER
                                         val h = hoursInput.toIntOrNull() ?: 0
                                         val m = minutesInput.toIntOrNull() ?: 0
                                         val s = secondsInput.toIntOrNull() ?: 0
@@ -488,6 +492,7 @@ fun AdminDashboardDialog(
                         }
 
                         1 -> {
+                            // UI Identitas
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -590,6 +595,7 @@ fun AdminDashboardDialog(
                         }
 
                         2 -> {
+                            // UI WHITELIST (PERBAIKAN TOTAL: MENGGUNAKAN GRID VERTIKAL)
                             Column(modifier = Modifier.fillMaxSize()) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -603,21 +609,23 @@ fun AdminDashboardDialog(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "Geser >>",
+                                        text = "${selectedWhitelist.size} Dipilih",
                                         color = Color.Gray,
                                         fontSize = 10.sp
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                LazyRow(
+                                LazyVerticalGrid(
+                                    columns = GridCells.Adaptive(minSize = 100.dp), // Menyesuaikan ukuran layar
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(Color(0xFF0F172A)),
                                     contentPadding = PaddingValues(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     items(allInstalledApps) { app ->
                                         val isChecked = selectedWhitelist.contains(app.packageName)
@@ -626,8 +634,8 @@ fun AdminDashboardDialog(
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.Center,
                                             modifier = Modifier
-                                                .width(100.dp)
-                                                .heightIn(min = 130.dp, max = 150.dp) // FIX BUG LAYOUT: Tinggi seragam
+                                                .fillMaxWidth()
+                                                .height(130.dp) // Tinggi fix agar rapi
                                                 .clip(RoundedCornerShape(14.dp))
                                                 .background(if (isChecked) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color(0xFF1E293B))
                                                 .border(
@@ -639,12 +647,12 @@ fun AdminDashboardDialog(
                                                     if (isChecked) updated.remove(app.packageName) else updated.add(app.packageName)
                                                     selectedWhitelist = updated
                                                 }
-                                                .padding(10.dp)
+                                                .padding(8.dp)
                                         ) {
                                             Box(
                                                 contentAlignment = Alignment.Center,
                                                 modifier = Modifier
-                                                    .size(48.dp)
+                                                    .size(44.dp)
                                                     .clip(RoundedCornerShape(12.dp))
                                                     .background(Color.Black.copy(alpha = 0.4f))
                                             ) {
@@ -652,10 +660,10 @@ fun AdminDashboardDialog(
                                                     imageVector = Icons.Default.Android,
                                                     contentDescription = null,
                                                     tint = if (isChecked) Color.White else Color.Gray,
-                                                    modifier = Modifier.size(32.dp)
+                                                    modifier = Modifier.size(28.dp)
                                                 )
                                             }
-                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Spacer(modifier = Modifier.height(8.dp))
                                             
                                             Text(
                                                 text = app.label,
@@ -668,11 +676,11 @@ fun AdminDashboardDialog(
                                                 textAlign = TextAlign.Center,
                                                 lineHeight = 14.sp
                                             )
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Spacer(modifier = Modifier.height(6.dp))
                                             
                                             Box(
                                                 modifier = Modifier
-                                                    .size(24.dp)
+                                                    .size(20.dp)
                                                     .clip(CircleShape)
                                                     .background(if (isChecked) GamingColors.NeonCyan else Color.Transparent)
                                                     .border(1.dp, if (isChecked) GamingColors.NeonCyan else Color.Gray, CircleShape)
@@ -682,7 +690,7 @@ fun AdminDashboardDialog(
                                                         imageVector = Icons.Default.Check,
                                                         contentDescription = null,
                                                         tint = Color.Black,
-                                                        modifier = Modifier.size(16.dp).align(Alignment.Center)
+                                                        modifier = Modifier.size(14.dp).align(Alignment.Center)
                                                     )
                                                 }
                                             }
@@ -704,6 +712,7 @@ fun AdminDashboardDialog(
                         }
 
                         3 -> {
+                            // UI Keamanan
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
