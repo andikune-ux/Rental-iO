@@ -78,12 +78,13 @@ class AppCarouselAdapter(
         if (itemHeightPx > 0 && holder.itemView.layoutParams.height != itemHeightPx) {
             holder.itemView.layoutParams.height = itemHeightPx
         }
-        val actualIndex = position % items.size
+        
+        // FIX BUG CRASH: Memastikan hasil modulo selalu positif meskipun posisinya negatif
+        val actualIndex = (position % items.size + items.size) % items.size
         val app = items[actualIndex]
         holder.bind(app, position, position == focusedPosition, currentGlowColor)
     }
 
-    // High virtual wrap for infinite scroll without integer overflow
     override fun getItemCount(): Int = if (items.isEmpty()) 0 else items.size * VIRTUAL_CYCLES
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
