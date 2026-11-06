@@ -16,7 +16,6 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Bundle
-import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
@@ -77,7 +76,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.testTag
@@ -184,10 +182,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // INISIALISASI CRASH HANDLER DI PALING AWAL
-        CrashHandler.initialize(this)
-
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -493,13 +487,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupRightPanelCompose(composeKioskUi: ComposeView) {
-        // CEK APAKAH ADA LOG CRASH SEBELUMNYA
         val previousCrashLog = CrashHandler.getAndClearCrashLog(this)
 
         composeKioskUi.setContent {
             RentalIOGamingTheme {
                 val state by viewModel.uiState.collectAsState()
                 val allApps by viewModel.allDeviceApps.collectAsState()
+
+                // State lokal untuk mengontrol visibilitas dialog crash
+                var showCrashDialog by remember { mutableStateOf(previousCrashLog != null) }
+
+                if (showCrashDialog && previousCrashLog != null) {
+                    CrashLogDialog(
+                        logText = previousCrashLog,
+                        onDismiss = { showCrashDialog = false }
+                    )
+                }
 
                 BackHandler(enabled = true) {
                     if (state.showAdminDialog) {
@@ -510,17 +513,6 @@ class MainActivity : ComponentActivity() {
                         viewModel.dismissUnlimitedSummary()
                     } else if (isCarouselOpen) {
                         toggleCarouselVisibility()
-                    }
-                }
-
-                // TAMPILKAN DIALOG CRASH JIKA ADA
-                if (previousCrashLog != null) {
-                    var showCrashDialog by remember { mutableStateOf(true) }
-                    if (showCrashDialog) {
-                        CrashLogDialog(
-                            logText = previousCrashLog,
-                            onDismiss = { showCrashDialog = false }
-                        )
                     }
                 }
 
