@@ -5,7 +5,6 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
@@ -49,7 +48,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.initializeIfNeeded()
             loadAllInstalledApps()
             checkDeviceOwnerStatus()
-            // Cold start update check
             checkForUpdates(silent = true)
         }
     }
@@ -194,7 +192,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        // Whitelist enforcement (Bagian 4 Butir 16)
         val isWhitelisted = preferences.getSettings().whitelistPackages.contains(app.packageName)
         if (!isWhitelisted && _allDeviceApps.value.any { preferences.getSettings().whitelistPackages.contains(it.packageName) }) {
             Toast.makeText(context, "Aplikasi ini diblokir oleh Admin Kiosk!", Toast.LENGTH_SHORT).show()
@@ -203,21 +200,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val packageManager = context.packageManager
         val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+        
         if (launchIntent != null) {
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(launchIntent)
         } else {
-            try {
-                val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${app.packageName}")).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(marketIntent)
-            } catch (_: Exception) {
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${app.packageName}")).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(webIntent)
-            }
+            // FIX BUG KIOSK: Jangan pernah buka Play Store. Blokir total!
+            Toast.makeText(context, "Aplikasi tidak terpasang atau diblokir oleh sistem Kiosk!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -242,7 +231,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             preferences.saveUnlimitedMode(isUnlimited)
 
             if (isUnlimited) {
-                // Unlimited mode: reset timer to 0 and count up
                 repository.setRemainingSeconds(0L)
             } else {
                 val totalSeconds = (hours * 3600L) + (minutes * 60L) + seconds + (bonusMinutes * 60L)
