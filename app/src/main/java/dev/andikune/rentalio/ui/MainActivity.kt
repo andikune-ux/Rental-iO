@@ -33,15 +33,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Gamepad
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayCircleFilled
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,7 +51,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.testTag
@@ -110,7 +105,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Strictly lock to Landscape orientation
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -146,7 +140,9 @@ class MainActivity : ComponentActivity() {
         // 5. Setup Right Panel Compose UI Layer
         setupRightPanelCompose(composeKioskUi)
 
-        // Initial default radial glow
+        // Initial default radial glow (hidden until carousel opens)
+        ivPanelRadialGlow.alpha = 0f
+        ivPanelRadialGlow.visibility = View.INVISIBLE
         updateBackgroundRadialGlow(currentGlowColor)
     }
 
@@ -160,6 +156,7 @@ class MainActivity : ComponentActivity() {
         isCarouselOpen = !isCarouselOpen
         if (isCarouselOpen) {
             flLeftCarouselContainer.visibility = View.VISIBLE
+            ivPanelRadialGlow.visibility = View.VISIBLE
             flLeftCarouselContainer.animate()
                 .alpha(1f)
                 .setDuration(260)
@@ -168,6 +165,10 @@ class MainActivity : ComponentActivity() {
                     checkCenterSnappedItem()
                 }
                 .start()
+            ivPanelRadialGlow.animate()
+                .alpha(0.80f)
+                .setDuration(260)
+                .start()
             btnToggleCarousel.animate().scaleX(1.1f).scaleY(1.1f).setDuration(180).start()
         } else {
             flLeftCarouselContainer.animate()
@@ -175,6 +176,13 @@ class MainActivity : ComponentActivity() {
                 .setDuration(220)
                 .withEndAction {
                     flLeftCarouselContainer.visibility = View.INVISIBLE
+                }
+                .start()
+            ivPanelRadialGlow.animate()
+                .alpha(0f)
+                .setDuration(220)
+                .withEndAction {
+                    ivPanelRadialGlow.visibility = View.INVISIBLE
                 }
                 .start()
             btnToggleCarousel.animate().scaleX(1.0f).scaleY(1.0f).setDuration(180).start()
@@ -187,8 +195,12 @@ class MainActivity : ComponentActivity() {
         rvAppCarousel.setHasFixedSize(false)
 
         carouselAdapter = AppCarouselAdapter(this) { app, position ->
-            if (position == lastSnappedPosition) {
+            val currentCenterView = snapHelper.findSnapView(layoutManager)
+            val currentCenterPosition = if (currentCenterView != null) layoutManager.getPosition(currentCenterView) else -1
+
+            if (position == currentCenterPosition || position == lastSnappedPosition) {
                 // Posisi tengah (fokus utama) -> langsung luncurkan aplikasi
+                viewModel.selectApp(app)
                 viewModel.launchSelectedApp(this@MainActivity)
             } else {
                 // Posisi pinggir -> scroll ke tengah
@@ -200,7 +212,6 @@ class MainActivity : ComponentActivity() {
         snapHelper = LinearSnapHelper()
         snapHelper.attachToRecyclerView(rvAppCarousel)
 
-        // Ensure exactly 5 items fit within the RecyclerView viewport before scrolling
         rvAppCarousel.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
             val totalHeight = bottom - top
             if (totalHeight > 0) {
@@ -220,7 +231,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Apply C-Shape transformation dynamically during scrolling
         rvAppCarousel.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 applyCShapeCurve()
@@ -234,7 +244,6 @@ class MainActivity : ComponentActivity() {
             }
         })
 
-        // Observe Whitelist Apps from ViewModel (Only reload when app list actually changes)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
@@ -264,17 +273,16 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Mathematical C-Shape Transformation (C Terbalik / Kurva `)` ):
-     * - Tombol pemicu ada di kiri luar layar.
+     * - Tombol pemicu di kiri luar layar.
      * - Aplikasi di posisi tengah (fokus utama): paling dekat ke tombol (translationX = 0f, scale = 1.0f, alpha = 1.0f).
-     * - Aplikasi di atas & bawah: mundur ke KANAN (translationX POSITIF) dan mengecil (scale = 0.75f -> 0.50f, alpha = 0.8f -> 0.45f).
-     * - PivotX = 0f (pivot di sisi kiri).
+     * - Aplikasi di atas & bawah: mundur ke KANAN (translationX positif) dan mengecil (bentuk kurva ).
      */
     private fun applyCShapeCurve() {
         val rvHeight = rvAppCarousel.height
         if (rvHeight <= 0) return
         val centerY = rvHeight / 2f
         val maxDistance = rvHeight / 2f
-        val maxShiftPx = 65f * resources.displayMetrics.density
+        val maxShiftPx = 150f * resources.displayMetrics.density
 
         for (i in 0 until rvAppCarousel.childCount) {
             val child = rvAppCarousel.getChildAt(i) ?: continue
@@ -282,16 +290,11 @@ class MainActivity : ComponentActivity() {
             val distance = abs(childCenterY - centerY)
             val ratio = (distance / maxDistance).coerceIn(0f, 1f)
 
-            // Scale: 1.0 at center -> 0.75 at mid -> 0.50 at edges
-            val scale = 1.0f - (0.50f * ratio)
+            val scale = 1.0f - (0.25f * ratio)
+            val alpha = (1.0f - (0.50f * ratio)).coerceIn(0.45f, 1.0f)
+            val translationX = maxShiftPx * ratio.pow(1.2f)
 
-            // Alpha: 1.0 at center -> 0.80 at mid -> 0.45 at edges
-            val alpha = (1.0f - (0.55f * ratio)).coerceIn(0.40f, 1.0f)
-
-            // TranslationX: 0f at center, POSITIVE shift to the right for items above & below
-            val translationX = maxShiftPx * ratio.pow(1.15f)
-
-            child.pivotX = 0f // Pivot di sisi kiri menghadap tombol pemicu
+            child.pivotX = 0f
             child.pivotY = child.height / 2f
             child.scaleX = scale
             child.scaleY = scale
@@ -312,9 +315,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Identifies the center-snapped item, triggers Palette color extraction, and animates glow.
-     */
     private fun checkCenterSnappedItem() {
         val layoutManager = rvAppCarousel.layoutManager ?: return
         val snapView = snapHelper.findSnapView(layoutManager) ?: return
@@ -331,9 +331,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Extracts dominant/vibrant color from app icon using AndroidX Palette API.
-     */
     private fun extractIconPalette(packageName: String) {
         val bitmap = getAppIconBitmap(this, packageName)
         Palette.from(bitmap).generate { palette ->
@@ -354,11 +351,7 @@ class MainActivity : ComponentActivity() {
             addUpdateListener { animator ->
                 val animatedColor = animator.animatedValue as Int
                 currentGlowColor = animatedColor
-
-                // a. Animate Layer Radial Gradient Glow on background behind glass
                 updateBackgroundRadialGlow(animatedColor)
-
-                // b. Direct GPU draw update on active center item border (no notifyItemChanged rebuild)
                 carouselAdapter.updateGlowColorDirectly(rvAppCarousel, animatedColor)
             }
             start()
@@ -373,8 +366,8 @@ class MainActivity : ComponentActivity() {
             gradientRadius = width * 0.95f
             setGradientCenter(0.5f, 0.5f)
             colors = intArrayOf(
-                ColorUtils.setAlphaComponent(color, 110),
-                ColorUtils.setAlphaComponent(color, 40),
+                ColorUtils.setAlphaComponent(color, 90),
+                ColorUtils.setAlphaComponent(color, 30),
                 Color.TRANSPARENT
             )
         }
@@ -480,15 +473,19 @@ fun RealTimeClockWidget(modifier: Modifier = Modifier) {
             text = currentTime.format(dateFormatter),
             color = GlassColors.TextSecondary,
             fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false
         )
         Text(
             text = currentTime.format(timeFormatter),
             color = GlassColors.AccentGlow,
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
-            letterSpacing = 1.sp
+            letterSpacing = 0.5.sp,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -526,7 +523,7 @@ fun RightPanelAndOverlays(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 // Brand Crest
                 Box(
@@ -552,17 +549,21 @@ fun RightPanelAndOverlays(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = 1.5.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                     Text(
-                        text = "Clean Glass Edition",
+                        text = "Liquid Glass Edition",
                         color = GlassColors.TextSecondary,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.weight(1f))
 
                 // Kiosk Status Chip (Outline only)
                 Box(
@@ -579,20 +580,22 @@ fun RightPanelAndOverlays(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (state.isDeviceOwnerActive) "DEVICE OWNER AKTIF" else "KIOSK READY",
+                            text = if (state.isDeviceOwnerActive) "KIOSK ON" else "OFFLINE",
                             color = if (state.isDeviceOwnerActive) GlassColors.AccentGreen else GlassColors.AccentAmber,
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(16.dp))
 
-                // RealTimeClockWidget: Hari, Tanggal di baris atas & Jam di baris bawah
+                // RealTimeClockWidget (Floating freely, id-ID Locale, per second)
                 RealTimeClockWidget()
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 IconButton(
                     onClick = onCheckUpdate,
@@ -606,44 +609,20 @@ fun RightPanelAndOverlays(
                     )
                 }
 
-                // Prominent Glass Pill Button for Admin Settings (PIN Protected)
-                Box(
+                IconButton(
+                    onClick = onOpenAdmin,
                     modifier = Modifier
                         .testTag("admin_settings_button")
-                        .liquidGlass(cornerRadius = 14.dp, isSelected = true)
-                        .clickable(onClick = onOpenAdmin)
-                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                        .size(38.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Pengaturan Admin",
-                            tint = GlassColors.AccentGlow,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "PENGATURAN",
-                            color = GlassColors.TextPrimary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Terkunci PIN",
-                            tint = GlassColors.AccentAmber,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.AdminPanelSettings,
+                        contentDescription = "Admin Panel",
+                        tint = GlassColors.TextSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             // 2. Center: Game Preview (Floating Freely Without Box / Border)
             val activeApp = state.selectedApp
@@ -652,57 +631,47 @@ fun RightPanelAndOverlays(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .padding(24.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onLaunchApp
                     )
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // Floating Glowing Icon (Free-floating, no border or box)
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(72.dp)
-                    ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(64.dp)) {
                         Icon(
                             imageVector = Icons.Default.Gamepad,
                             contentDescription = activeApp?.label ?: "Game",
                             tint = GlassColors.AccentGlow,
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier.size(54.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = activeApp?.label ?: "Pilih Game dari Menu",
+                        text = activeApp?.label ?: "Pilih Game",
                         color = GlassColors.TextPrimary,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.2.sp
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
                     )
-
                     Spacer(modifier = Modifier.height(4.dp))
-
                     Text(
-                        text = activeApp?.category ?: "Ketuk aplikasi di tengah untuk membuka",
+                        text = activeApp?.packageName ?: "dev.andikune.rentalio",
                         color = GlassColors.AccentGlow,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Normal
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             // 3. Digital Clock Vertical Clean Timer Widget
             NeonTimerWidget(
                 remainingSeconds = state.remainingSeconds,
                 isExpired = state.isExpired,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
             )
         }
 
