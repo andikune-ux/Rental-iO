@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,7 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -63,6 +65,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -121,7 +125,6 @@ fun AdminDashboardDialog(
         }
     }
 
-    // PERBAIKAN: Tambahkan properties DialogProperties(usePlatformDefaultWidth = false)
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -175,7 +178,7 @@ fun AdminDashboardDialog(
                 }
 
                 if (!isAuthenticated) {
-                    // PERBAIKAN: Bungkus dengan Box dan verticalScroll agar tidak terpotong
+                    // PIN Gate (Tetap dipertahankan, sudah anti-terpotong)
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -201,7 +204,6 @@ fun AdminDashboardDialog(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // PIN Dots
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier.padding(bottom = 12.dp)
@@ -218,7 +220,6 @@ fun AdminDashboardDialog(
                                 }
                             }
 
-                            // Keypad
                             val authKeys = listOf(
                                 listOf("1", "2", "3"),
                                 listOf("4", "5", "6"),
@@ -331,6 +332,7 @@ fun AdminDashboardDialog(
 
                     when (selectedTab) {
                         0 -> {
+                            // TAB 0: Waktu & Tarif
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -455,7 +457,8 @@ fun AdminDashboardDialog(
 
                                 Button(
                                     onClick = {
-                                        val h = hoursInput.toIntOrNull() ?: 1
+                                        // PERBAIKAN BUG: Default fallback diubah dari 1 ke 0
+                                        val h = hoursInput.toIntOrNull() ?: 0
                                         val m = minutesInput.toIntOrNull() ?: 0
                                         val s = secondsInput.toIntOrNull() ?: 0
                                         val b = bonusMinutesInput.toIntOrNull() ?: 0
@@ -496,6 +499,7 @@ fun AdminDashboardDialog(
                         }
 
                         1 -> {
+                            // TAB 1: Identitas
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -513,7 +517,7 @@ fun AdminDashboardDialog(
                                     OutlinedTextField(
                                         value = phoneLabelInput,
                                         onValueChange = { phoneLabelInput = it },
-                                        label = { Text("Label Perangkat (Contoh: HP NO. 1)") },
+                                        label = { Text("Label (HP NO. 1)") },
                                         singleLine = true,
                                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                         modifier = Modifier.weight(1f)
@@ -532,15 +536,10 @@ fun AdminDashboardDialog(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Auto-Start Launcher Saat HP Nyala (Boot)",
+                                            text = "Auto-Start Launcher Saat HP Nyala",
                                             color = Color.White,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "Langsung masuk Rental.iO saat perangkat direstart",
-                                            color = GamingColors.TextSecondary,
-                                            fontSize = 10.sp
                                         )
                                     }
                                     Switch(
@@ -603,59 +602,86 @@ fun AdminDashboardDialog(
                         }
 
                         2 -> {
+                            // TAB 2: Whitelist (PERBAIKAN UI HORIZONTAL)
                             Column(modifier = Modifier.fillMaxSize()) {
                                 Text(
-                                    text = "PILIH APLIKASI YANG DIIZINKAN PADA CAROUSEL",
+                                    text = "PILIH APLIKASI YANG DIIZINKAN",
                                     color = GamingColors.NeonCyan,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Centang game/aplikasi yang boleh dimainkan oleh penyewa:",
+                                    text = "Geser ke kanan/kiri untuk melihat aplikasi lain:",
                                     color = GamingColors.TextSecondary,
                                     fontSize = 10.sp
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                                LazyColumn(
+                                LazyRow(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF0F172A))
-                                        .padding(6.dp)
+                                        .background(Color(0xFF0F172A)),
+                                    contentPadding = PaddingValues(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     items(allInstalledApps) { app ->
                                         val isChecked = selectedWhitelist.contains(app.packageName)
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
+                                        
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
                                             modifier = Modifier
-                                                .fillMaxWidth()
+                                                .width(80.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (isChecked) Color(0xFF1E3A8A) else Color(0xFF1E293B))
+                                                .border(
+                                                    BorderStroke(1.dp, if (isChecked) GamingColors.NeonCyan else Color.Gray.copy(alpha = 0.3f)),
+                                                    RoundedCornerShape(8.dp)
+                                                )
                                                 .clickable {
                                                     val updated = selectedWhitelist.toMutableSet()
                                                     if (isChecked) updated.remove(app.packageName) else updated.add(app.packageName)
                                                     selectedWhitelist = updated
                                                 }
-                                                .padding(vertical = 4.dp, horizontal = 6.dp)
+                                                .padding(vertical = 8.dp, horizontal = 4.dp)
                                         ) {
+                                            // Placeholder Ikon (Bisa diganti dengan Image asli jika ada)
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color.DarkGray.copy(alpha = 0.5f))
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Android,
+                                                    contentDescription = null,
+                                                    tint = if (isChecked) Color.White else Color.LightGray
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = app.label,
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.Center,
+                                                lineHeight = 12.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
                                             Checkbox(
                                                 checked = isChecked,
-                                                onCheckedChange = { checked ->
-                                                    val updated = selectedWhitelist.toMutableSet()
-                                                    if (checked) updated.add(app.packageName) else updated.remove(app.packageName)
-                                                    selectedWhitelist = updated
-                                                },
+                                                onCheckedChange = null, // Klik ditangani oleh Column
                                                 colors = CheckboxDefaults.colors(
                                                     checkedColor = GamingColors.NeonCyan,
-                                                    checkmarkColor = Color.Black
-                                                )
+                                                    checkmarkColor = Color.Black,
+                                                    uncheckedColor = Color.Gray
+                                                ),
+                                                modifier = Modifier.size(20.dp)
                                             )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Column {
-                                                Text(app.label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                                Text(app.packageName, color = GamingColors.TextSecondary, fontSize = 9.sp)
-                                            }
                                         }
                                     }
                                 }
@@ -674,6 +700,7 @@ fun AdminDashboardDialog(
                         }
 
                         3 -> {
+                            // TAB 3: Keamanan
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -753,7 +780,7 @@ fun AdminDashboardDialog(
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
-                                            text = if (isLockTaskActive) "LockTask Mode: AKTIF (Kunci Keras)" else "LockTask Mode: Standby",
+                                            text = if (isLockTaskActive) "LockTask Mode: AKTIF" else "LockTask Mode: Standby",
                                             color = GamingColors.TextSecondary,
                                             fontSize = 10.sp
                                         )
