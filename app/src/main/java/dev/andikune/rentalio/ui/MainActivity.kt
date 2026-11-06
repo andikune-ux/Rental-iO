@@ -103,6 +103,7 @@ import dev.andikune.rentalio.R
 import dev.andikune.rentalio.data.model.RentalUiState
 import dev.andikune.rentalio.service.KioskForegroundService
 import dev.andikune.rentalio.ui.components.AdminDashboardDialog
+import dev.andikune.rentalio.ui.components.CrashLogDialog
 import dev.andikune.rentalio.ui.components.GameOverOverlay
 import dev.andikune.rentalio.ui.components.NeonTimerWidget
 import dev.andikune.rentalio.ui.components.UpdateDialog
@@ -110,6 +111,7 @@ import dev.andikune.rentalio.ui.theme.GamingColors
 import dev.andikune.rentalio.ui.theme.GlassColors
 import dev.andikune.rentalio.ui.theme.RentalIOGamingTheme
 import dev.andikune.rentalio.ui.theme.liquidGlass
+import dev.andikune.rentalio.utils.CrashHandler
 import dev.andikune.rentalio.utils.SecurityHelper
 import dev.andikune.rentalio.utils.SystemOverlayHelper
 import kotlinx.coroutines.delay
@@ -182,6 +184,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // INISIALISASI CRASH HANDLER DI PALING AWAL
+        CrashHandler.initialize(this)
+
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -487,6 +493,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupRightPanelCompose(composeKioskUi: ComposeView) {
+        // CEK APAKAH ADA LOG CRASH SEBELUMNYA
+        val previousCrashLog = CrashHandler.getAndClearCrashLog(this)
+
         composeKioskUi.setContent {
             RentalIOGamingTheme {
                 val state by viewModel.uiState.collectAsState()
@@ -501,6 +510,17 @@ class MainActivity : ComponentActivity() {
                         viewModel.dismissUnlimitedSummary()
                     } else if (isCarouselOpen) {
                         toggleCarouselVisibility()
+                    }
+                }
+
+                // TAMPILKAN DIALOG CRASH JIKA ADA
+                if (previousCrashLog != null) {
+                    var showCrashDialog by remember { mutableStateOf(true) }
+                    if (showCrashDialog) {
+                        CrashLogDialog(
+                            logText = previousCrashLog,
+                            onDismiss = { showCrashDialog = false }
+                        )
                     }
                 }
 
@@ -1063,7 +1083,7 @@ fun RightPanelAndOverlays(
         if (state.showUpdateDialog && state.updateRelease != null) {
             UpdateDialog(
                 release = state.updateRelease,
-                downloadProgress = state.downloadProgress.toFloat(), // <--- PERBAIKAN ERROR DISINI
+                downloadProgress = state.downloadProgress.toFloat(),
                 onUpdateClick = onUpdateNow,
                 onLaterClick = onLaterUpdate,
                 onSkipClick = onLaterUpdate
