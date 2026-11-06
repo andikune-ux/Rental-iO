@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -626,7 +627,7 @@ fun AdminDashboardDialog(
                                             verticalArrangement = Arrangement.Center,
                                             modifier = Modifier
                                                 .width(100.dp)
-                                                .fillMaxHeight()
+                                                .heightIn(min = 130.dp, max = 150.dp) // FIX BUG LAYOUT: Tinggi seragam
                                                 .clip(RoundedCornerShape(14.dp))
                                                 .background(if (isChecked) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color(0xFF1E293B))
                                                 .border(
