@@ -1,7 +1,10 @@
 package dev.andikune.rentalio.ui
 
 import android.animation.ValueAnimator
+import android.app.AlertDialog
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -91,6 +94,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.palette.graphics.Palette
@@ -122,7 +126,9 @@ import kotlin.math.pow
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: MainViewModel by viewModels()
+    // UBAH MENJADI LATEINIT AGAR TIDAK CRASH SAAT INISIALISASI
+    private lateinit var viewModel: MainViewModel
+    
     private lateinit var gyroscopeHelper: GyroscopeHelper
     private lateinit var ivParallaxBackground: ImageView
     private lateinit var ivPanelRadialGlow: ImageView
@@ -142,6 +148,7 @@ class MainActivity : ComponentActivity() {
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                if (!::viewModel.isInitialized) return
                 val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
                 val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
                 val batteryPct = if (level >= 0 && scale > 0) (level * 100 / scale) else 100
@@ -182,44 +189,83 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        applyFullscreenImmersive()
-        setContentView(R.layout.activity_main)
-
-        ivParallaxBackground = findViewById(R.id.iv_parallax_background)
-        ivPanelRadialGlow = findViewById(R.id.iv_panel_radial_glow)
-        flLeftCarouselContainer = findViewById(R.id.fl_left_carousel_container)
-        btnToggleCarousel = findViewById(R.id.btn_toggle_carousel)
-        rvAppCarousel = findViewById(R.id.rv_app_carousel)
-        val composeKioskUi = findViewById<ComposeView>(R.id.compose_kiosk_ui)
-
-        SystemOverlayHelper.requestOverlayPermission(this)
-
-        gyroscopeHelper = GyroscopeHelper(this, maxOffsetPx = 45f)
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                gyroscopeHelper.offsetFlow.collect { offset ->
-                    ivParallaxBackground.translationX = offset.translationX
-                    ivParallaxBackground.translationY = offset.translationY
-                }
-            }
+        // 1. CEK CRASH LOG PALING AWAL
+        val crashLog = CrashHandler.getAndClearCrashLog(this)
+        if (crashLog != null) {
+            showNativeCrashDialog(crashLog)
+            return // Berhenti di sini. Jangan lanjutkan memuat UI agar tidak crash lagi.
         }
 
-        setupCurvedCarousel()
-        setupToggleCarouselButton()
-        KioskForegroundService.start(this)
-        
-        // CEK CRASH LOG SEBELUM MENAMPILKAN UI
-        val crashLog = CrashHandler.getAndClearCrashLog(this)
-        setupRightPanelCompose(composeKioskUi, crashLog)
+        // 2. LOAD UI & VIEWMODEL DENGAN PENGAMAN (TRY-CATCH)
+        try {
+            viewModel = ViewModelProvider(this)[MainViewModel::class.java]
 
-        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        ivPanelRadialGlow.alpha = 0f
-        ivPanelRadialGlow.visibility = View.INVISIBLE
-        updateBackgroundRadialGlow(currentGlowColor)
+            applyFullscreenImmersive()
+            setContentView(R.layout.activity_main)
+
+            ivParallaxBackground = findViewById(R.id.iv_parallax_background)
+            ivPanelRadialGlow = findViewById(R.id.iv_panel_radial_glow)
+            flLeftCarouselContainer = findViewById(R.id.fl_left_carousel_container)
+            btnToggleCarousel = findViewById(R.id.btn_toggle_carousel)
+            rvAppCarousel = findViewById(R.id.rv_app_carousel)
+            val composeKioskUi = findViewById<ComposeView>(R.id.compose_kiosk_ui)
+
+            SystemOverlayHelper.requestOverlayPermission(this)
+
+            gyroscopeHelper = GyroscopeHelper(this, maxOffsetPx = 45f)
+            lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    gyroscopeHelper.offsetFlow.collect { offset ->
+                        ivParallaxBackground.translationX = offset.translationX
+                        ivParallaxBackground.translationY = offset.translationY
+                    }
+                }
+            }
+
+            setupCurvedCarousel()
+            setupToggleCarouselButton()
+            KioskForegroundService.start(this)
+            
+            setupRightPanelCompose(composeKioskUi)
+
+            registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+
+            ivPanelRadialGlow.alpha = 0f
+            ivPanelRadialGlow.visibility = View.INVISIBLE
+            updateBackgroundRadialGlow(currentGlowColor)
+
+        } catch (e: Exception) {
+            // JIKA UI CRASH, TAMPILKAN ALERT DIALOG NATIVE
+            showNativeCrashDialog(e.stackTraceToString())
+        }
+    }
+
+    // DIALOG BAWAAN ANDROID (PASTI MUNCUL)
+    private fun showNativeCrashDialog(log: String) {
+        try {
+            val dialog = AlertDialog.Builder(this)
+                .setTitle("APLIKASI CRASH (FORCE CLOSE)")
+                .setMessage(log)
+                .setCancelable(false)
+                .setPositiveButton("SALIN LOG") { _, _ ->
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Crash Log", log))
+                    Toast.makeText(this, "Log berhasil disalin! Tempel di chat.", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                .setNegativeButton("TUTUP") { _, _ -> 
+                    finish() 
+                }
+                .create()
+            dialog.show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Aplikasi Crash. Harap hapus data (Clear Data) di pengaturan.", Toast.LENGTH_LONG).show()
+            finish()
+        }
     }
 
     private fun applyFullscreenImmersive() {
@@ -237,8 +283,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        val state = viewModel.uiState.value
-        if (state.showAdminDialog) {
+        if (::viewModel.isInitialized && viewModel.uiState.value.showAdminDialog) {
             return super.onKeyDown(keyCode, event)
         }
 
@@ -252,8 +297,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        val state = viewModel.uiState.value
-        if (!state.showAdminDialog) {
+        if (::viewModel.isInitialized && !viewModel.uiState.value.showAdminDialog) {
             when (keyCode) {
                 KeyEvent.KEYCODE_VOLUME_UP,
                 KeyEvent.KEYCODE_VOLUME_DOWN,
@@ -489,62 +533,50 @@ class MainActivity : ComponentActivity() {
         return bitmap
     }
 
-    private fun setupRightPanelCompose(composeKioskUi: ComposeView, crashLog: String?) {
+    private fun setupRightPanelCompose(composeKioskUi: ComposeView) {
         composeKioskUi.setContent {
             RentalIOGamingTheme {
-                // STATE UNTUK MENAMPILKAN CRASH LOG
-                var showCrashDialog by remember { mutableStateOf(crashLog != null) }
+                val state by viewModel.uiState.collectAsState()
+                val allApps by viewModel.allDeviceApps.collectAsState()
 
-                if (showCrashDialog && crashLog != null) {
-                    // TAMPILKAN DIALOG CRASH PALING ATAS
-                    CrashLogDialog(
-                        logText = crashLog,
-                        onDismiss = { showCrashDialog = false }
-                    )
-                } else {
-                    // JIKA TIDAK ADA CRASH, TAMPILKAN UI NORMAL
-                    val state by viewModel.uiState.collectAsState()
-                    val allApps by viewModel.allDeviceApps.collectAsState()
-
-                    BackHandler(enabled = true) {
-                        if (state.showAdminDialog) {
-                            viewModel.dismissAdminDialog()
-                        } else if (state.showUpdateDialog) {
-                            viewModel.dismissUpdateDialog()
-                        } else if (state.showUnlimitedSummaryDialog) {
-                            viewModel.dismissUnlimitedSummary()
-                        } else if (isCarouselOpen) {
-                            toggleCarouselVisibility()
-                        }
+                BackHandler(enabled = true) {
+                    if (state.showAdminDialog) {
+                        viewModel.dismissAdminDialog()
+                    } else if (state.showUpdateDialog) {
+                        viewModel.dismissUpdateDialog()
+                    } else if (state.showUnlimitedSummaryDialog) {
+                        viewModel.dismissUnlimitedSummary()
+                    } else if (isCarouselOpen) {
+                        toggleCarouselVisibility()
                     }
-
-                    RightPanelAndOverlays(
-                        state = state,
-                        allApps = allApps,
-                        currentSettings = viewModel.preferences.getSettings(),
-                        onLaunchApp = { viewModel.launchSelectedApp(this@MainActivity) },
-                        onOpenAdmin = { viewModel.openAdminDialog() },
-                        onCheckUpdate = { viewModel.checkForUpdates(silent = false) },
-                        onAddTime = { viewModel.addRentalTime(it) },
-                        onSetTime = { viewModel.setRentalTime(it) },
-                        onSaveDuration = { h, m, s, b, unlim ->
-                            viewModel.savePackageDuration(h, m, s, b, unlim)
-                        },
-                        onSaveIdentity = { rName, pLabel, b1, b2, b3, auto ->
-                            viewModel.saveIdentityAndBanners(rName, pLabel, b1, b2, b3, auto)
-                        },
-                        onSaveWhitelist = { viewModel.saveWhitelist(it) },
-                        onVerifyPin = { viewModel.verifyAdminPin(it) },
-                        onToggleLockTask = { viewModel.toggleLockTask(it, this@MainActivity) },
-                        onChangePin = { viewModel.updateAdminPin(it) },
-                        onDismissAdmin = { viewModel.dismissAdminDialog() },
-                        onUnlockWithPin = { viewModel.unlockWithPin(it) },
-                        onUpdateNow = { viewModel.downloadAndInstallUpdate() },
-                        onLaterUpdate = { viewModel.dismissUpdateDialog() },
-                        onFinishUnlimited = { viewModel.finishUnlimitedSession() },
-                        onDismissSummary = { viewModel.dismissUnlimitedSummary() }
-                    )
                 }
+
+                RightPanelAndOverlays(
+                    state = state,
+                    allApps = allApps,
+                    currentSettings = viewModel.preferences.getSettings(),
+                    onLaunchApp = { viewModel.launchSelectedApp(this@MainActivity) },
+                    onOpenAdmin = { viewModel.openAdminDialog() },
+                    onCheckUpdate = { viewModel.checkForUpdates(silent = false) },
+                    onAddTime = { viewModel.addRentalTime(it) },
+                    onSetTime = { viewModel.setRentalTime(it) },
+                    onSaveDuration = { h, m, s, b, unlim ->
+                        viewModel.savePackageDuration(h, m, s, b, unlim)
+                    },
+                    onSaveIdentity = { rName, pLabel, b1, b2, b3, auto ->
+                        viewModel.saveIdentityAndBanners(rName, pLabel, b1, b2, b3, auto)
+                    },
+                    onSaveWhitelist = { viewModel.saveWhitelist(it) },
+                    onVerifyPin = { viewModel.verifyAdminPin(it) },
+                    onToggleLockTask = { viewModel.toggleLockTask(it, this@MainActivity) },
+                    onChangePin = { viewModel.updateAdminPin(it) },
+                    onDismissAdmin = { viewModel.dismissAdminDialog() },
+                    onUnlockWithPin = { viewModel.unlockWithPin(it) },
+                    onUpdateNow = { viewModel.downloadAndInstallUpdate() },
+                    onLaterUpdate = { viewModel.dismissUpdateDialog() },
+                    onFinishUnlimited = { viewModel.finishUnlimitedSession() },
+                    onDismissSummary = { viewModel.dismissUnlimitedSummary() }
+                )
             }
         }
     }
@@ -552,16 +584,20 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         applyFullscreenImmersive()
-        gyroscopeHelper.startListening()
-        viewModel.checkDeviceOwnerStatus()
-        rvAppCarousel.post {
-            applyCShapeCurve()
+        if (::viewModel.isInitialized) {
+            gyroscopeHelper.startListening()
+            viewModel.checkDeviceOwnerStatus()
+            rvAppCarousel.post {
+                applyCShapeCurve()
+            }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        gyroscopeHelper.stopListening()
+        if (::viewModel.isInitialized) {
+            gyroscopeHelper.stopListening()
+        }
     }
 
     override fun onDestroy() {
