@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Campaign
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -62,16 +61,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import dev.andikune.rentalio.data.local.RentalPreferences
 import dev.andikune.rentalio.data.model.WhitelistApp
 import dev.andikune.rentalio.ui.theme.GamingColors
-import dev.andikune.rentalio.ui.theme.GlassColors
 import dev.andikune.rentalio.utils.SecurityHelper
 
 @Composable
@@ -95,17 +93,14 @@ fun AdminDashboardDialog(
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
 
-    // Tab state: 0 = Waktu & Tarif, 1 = Identitas & Banner, 2 = Whitelist Apps, 3 = Keamanan
     var selectedTab by remember { mutableIntStateOf(0) }
 
-    // Waktu form state
     var hoursInput by remember { mutableStateOf(currentSettings.packageHours.toString()) }
     var minutesInput by remember { mutableStateOf(currentSettings.packageMinutes.toString()) }
     var secondsInput by remember { mutableStateOf("0") }
     var bonusMinutesInput by remember { mutableStateOf(currentSettings.bonusMinutes.toString()) }
     var isUnlimitedInput by remember { mutableStateOf(currentSettings.isUnlimitedMode) }
 
-    // Identitas form state
     var rentalNameInput by remember { mutableStateOf(currentSettings.rentalName) }
     var phoneLabelInput by remember { mutableStateOf(currentSettings.phoneLabel) }
     var banner1Input by remember { mutableStateOf(currentSettings.bannerText1) }
@@ -113,14 +108,11 @@ fun AdminDashboardDialog(
     var banner3Input by remember { mutableStateOf(currentSettings.bannerText3) }
     var autoStartInput by remember { mutableStateOf(currentSettings.autoStartOnBoot) }
 
-    // Whitelist state
     var selectedWhitelist by remember { mutableStateOf(currentSettings.whitelistPackages.toMutableSet()) }
 
-    // Ganti PIN state
     var newPinInput by remember { mutableStateOf("") }
     var newPinMessage by remember { mutableStateOf<String?>(null) }
 
-    // Live preview kalkulasi harga (Bagian 6 Butir 21 & 22)
     val estimatedPrice by remember {
         derivedStateOf {
             val h = hoursInput.toIntOrNull() ?: 0
@@ -129,7 +121,11 @@ fun AdminDashboardDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    // PERBAIKAN: Tambahkan properties DialogProperties(usePlatformDefaultWidth = false)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
             modifier = Modifier
                 .testTag("admin_dashboard_dialog")
@@ -179,117 +175,121 @@ fun AdminDashboardDialog(
                 }
 
                 if (!isAuthenticated) {
-                    // PIN Gate (Bagian 2 Butir 10: 6-digit, no hint)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
+                    // PERBAIKAN: Bungkus dengan Box dan verticalScroll agar tidak terpotong
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = GamingColors.NeonCyan,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = "Masukkan 6-Digit Master PIN Admin",
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // PIN Dots
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(bottom = 12.dp)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(vertical = 16.dp)
                         ) {
-                            for (i in 0 until 6) {
-                                val isFilled = i < pinInput.length
-                                Box(
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isFilled) GamingColors.NeonCyan else Color.White.copy(alpha = 0.2f))
-                                        .border(BorderStroke(1.dp, if (isFilled) GamingColors.NeonCyan else Color.Gray), CircleShape)
-                                )
-                            }
-                        }
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = GamingColors.NeonCyan,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "Masukkan 6-Digit Master PIN Admin",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                        // Compact PIN Keypad for Auth
-                        val authKeys = listOf(
-                            listOf("1", "2", "3"),
-                            listOf("4", "5", "6"),
-                            listOf("7", "8", "9"),
-                            listOf("C", "0", "OK")
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            authKeys.forEach { row ->
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    row.forEach { k ->
-                                        Box(
-                                            contentAlignment = Alignment.Center,
-                                            modifier = Modifier
-                                                .size(width = 60.dp, height = 36.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (k == "OK") GamingColors.NeonCyan else Color(0xFF1E293B))
-                                                .clickable {
-                                                    when (k) {
-                                                        "C" -> if (pinInput.isNotEmpty()) pinInput = pinInput.dropLast(1)
-                                                        "OK" -> {
-                                                            if (onVerifyPin(pinInput)) {
-                                                                isAuthenticated = true
-                                                                pinError = false
-                                                            } else {
-                                                                pinError = true
-                                                                pinInput = ""
+                            // PIN Dots
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            ) {
+                                for (i in 0 until 6) {
+                                    val isFilled = i < pinInput.length
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isFilled) GamingColors.NeonCyan else Color.White.copy(alpha = 0.2f))
+                                            .border(BorderStroke(1.dp, if (isFilled) GamingColors.NeonCyan else Color.Gray), CircleShape)
+                                    )
+                                }
+                            }
+
+                            // Keypad
+                            val authKeys = listOf(
+                                listOf("1", "2", "3"),
+                                listOf("4", "5", "6"),
+                                listOf("7", "8", "9"),
+                                listOf("C", "0", "OK")
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                authKeys.forEach { row ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        row.forEach { k ->
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier = Modifier
+                                                    .size(width = 60.dp, height = 36.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (k == "OK") GamingColors.NeonCyan else Color(0xFF1E293B))
+                                                    .clickable {
+                                                        when (k) {
+                                                            "C" -> if (pinInput.isNotEmpty()) pinInput = pinInput.dropLast(1)
+                                                            "OK" -> {
+                                                                if (onVerifyPin(pinInput)) {
+                                                                    isAuthenticated = true
+                                                                    pinError = false
+                                                                } else {
+                                                                    pinError = true
+                                                                    pinInput = ""
+                                                                }
                                                             }
-                                                        }
-                                                        else -> {
-                                                            if (pinInput.length < 6) {
-                                                                val next = pinInput + k
-                                                                pinInput = next
-                                                                if (next.length == 6) {
-                                                                    if (onVerifyPin(next)) {
-                                                                        isAuthenticated = true
-                                                                        pinError = false
-                                                                    } else {
-                                                                        pinError = true
-                                                                        pinInput = ""
+                                                            else -> {
+                                                                if (pinInput.length < 6) {
+                                                                    val next = pinInput + k
+                                                                    pinInput = next
+                                                                    if (next.length == 6) {
+                                                                        if (onVerifyPin(next)) {
+                                                                            isAuthenticated = true
+                                                                            pinError = false
+                                                                        } else {
+                                                                            pinError = true
+                                                                            pinInput = ""
+                                                                        }
                                                                     }
                                                                 }
                                                             }
                                                         }
                                                     }
-                                                }
-                                        ) {
-                                            Text(
-                                                text = k,
-                                                color = if (k == "OK") Color.Black else Color.White,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
+                                            ) {
+                                                Text(
+                                                    text = k,
+                                                    color = if (k == "OK") Color.Black else Color.White,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        if (pinError) {
-                            Text(
-                                text = "PIN Admin Salah. Silakan coba lagi.",
-                                color = GamingColors.NeonRed,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
+                            if (pinError) {
+                                Text(
+                                    text = "PIN Admin Salah. Silakan coba lagi.",
+                                    color = GamingColors.NeonRed,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                            }
                         }
                     }
                 } else {
-                    // Authenticated Admin Dashboard with Tabs
+                    // Dashboard Admin (Tabs)
                     TabRow(
                         selectedTabIndex = selectedTab,
                         containerColor = Color(0xFF101B2E),
@@ -329,16 +329,13 @@ fun AdminDashboardDialog(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Tab Content
                     when (selectedTab) {
                         0 -> {
-                            // TAB 0: Waktu & Tarif (Bagian 2 Butir 7 & Bagian 6 Butir 21-22)
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .verticalScroll(rememberScrollState())
                             ) {
-                                // Toggle Unlimited Timer
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
@@ -388,7 +385,7 @@ fun AdminDashboardDialog(
                                         OutlinedTextField(
                                             value = hoursInput,
                                             onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) hoursInput = it },
-                                            label = { Text("Jam") },
+                                            label = { Text("Jam", fontSize = 10.sp) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
@@ -397,7 +394,7 @@ fun AdminDashboardDialog(
                                         OutlinedTextField(
                                             value = minutesInput,
                                             onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) minutesInput = it },
-                                            label = { Text("Menit") },
+                                            label = { Text("Menit", fontSize = 10.sp) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
@@ -406,7 +403,7 @@ fun AdminDashboardDialog(
                                         OutlinedTextField(
                                             value = secondsInput,
                                             onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) secondsInput = it },
-                                            label = { Text("Detik") },
+                                            label = { Text("Detik", fontSize = 10.sp) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
@@ -415,7 +412,7 @@ fun AdminDashboardDialog(
                                         OutlinedTextField(
                                             value = bonusMinutesInput,
                                             onValueChange = { if (it.length <= 3 && it.all { c -> c.isDigit() }) bonusMinutesInput = it },
-                                            label = { Text("Bonus (Mnt)") },
+                                            label = { Text("Bonus (Mnt)", fontSize = 10.sp) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
@@ -425,7 +422,6 @@ fun AdminDashboardDialog(
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
-                                    // Live Price Preview (Bagian 6 Butir 21 & 22)
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -474,7 +470,6 @@ fun AdminDashboardDialog(
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // Quick Add Buttons
                                 Text(
                                     text = "TAMBAH WAKTU CEPAT KE SESI AKTIF",
                                     color = GamingColors.TextSecondary,
@@ -501,7 +496,6 @@ fun AdminDashboardDialog(
                         }
 
                         1 -> {
-                            // TAB 1: Identitas & Banner (Bagian 2 Butir 8, 9, 12)
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -528,7 +522,6 @@ fun AdminDashboardDialog(
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // Toggle Auto Start on Boot
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
@@ -610,7 +603,6 @@ fun AdminDashboardDialog(
                         }
 
                         2 -> {
-                            // TAB 2: Whitelist Apps Manager (Bagian 2 Butir 11)
                             Column(modifier = Modifier.fillMaxSize()) {
                                 Text(
                                     text = "PILIH APLIKASI YANG DIIZINKAN PADA CAROUSEL",
@@ -682,7 +674,6 @@ fun AdminDashboardDialog(
                         }
 
                         3 -> {
-                            // TAB 3: Keamanan & Sistem (Ganti PIN 6 Digit, Kiosk Lock, GitHub Update)
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -738,7 +729,6 @@ fun AdminDashboardDialog(
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
-                                // Kiosk LockTask control
                                 Text(
                                     text = "STATUS KIOSK HARD LOCK",
                                     color = GamingColors.NeonCyan,
