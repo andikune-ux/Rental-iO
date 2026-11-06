@@ -26,19 +26,18 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Android
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -148,7 +147,6 @@ fun AdminDashboardDialog(
                 .padding(16.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header Bar
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
@@ -163,8 +161,8 @@ fun AdminDashboardDialog(
                     Text(
                         text = "ADMIN CONTROL PANEL",
                         color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.weight(1f))
@@ -178,7 +176,6 @@ fun AdminDashboardDialog(
                 }
 
                 if (!isAuthenticated) {
-                    // PIN Gate (Tetap dipertahankan, sudah anti-terpotong)
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -195,27 +192,27 @@ fun AdminDashboardDialog(
                                 tint = GamingColors.NeonCyan,
                                 modifier = Modifier.size(36.dp)
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "Masukkan 6-Digit Master PIN Admin",
+                                text = "Masukkan 6-Digit Master PIN",
                                 color = Color.White,
-                                fontSize = 14.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(bottom = 12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(bottom = 16.dp)
                             ) {
                                 for (i in 0 until 6) {
                                     val isFilled = i < pinInput.length
                                     Box(
                                         modifier = Modifier
-                                            .size(14.dp)
+                                            .size(16.dp)
                                             .clip(CircleShape)
-                                            .background(if (isFilled) GamingColors.NeonCyan else Color.White.copy(alpha = 0.2f))
-                                            .border(BorderStroke(1.dp, if (isFilled) GamingColors.NeonCyan else Color.Gray), CircleShape)
+                                            .background(if (isFilled) GamingColors.NeonCyan else Color.White.copy(alpha = 0.15f))
+                                            .border(BorderStroke(1.dp, if (isFilled) GamingColors.NeonCyan else Color.Gray.copy(alpha = 0.5f)), CircleShape)
                                     )
                                 }
                             }
@@ -226,15 +223,15 @@ fun AdminDashboardDialog(
                                 listOf("7", "8", "9"),
                                 listOf("C", "0", "OK")
                             )
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 authKeys.forEach { row ->
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         row.forEach { k ->
                                             Box(
                                                 contentAlignment = Alignment.Center,
                                                 modifier = Modifier
-                                                    .size(width = 60.dp, height = 36.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .size(width = 64.dp, height = 42.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
                                                     .background(if (k == "OK") GamingColors.NeonCyan else Color(0xFF1E293B))
                                                     .clickable {
                                                         when (k) {
@@ -269,7 +266,7 @@ fun AdminDashboardDialog(
                                                 Text(
                                                     text = k,
                                                     color = if (k == "OK") Color.Black else Color.White,
-                                                    fontSize = 13.sp,
+                                                    fontSize = 15.sp,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             }
@@ -280,32 +277,32 @@ fun AdminDashboardDialog(
 
                             if (pinError) {
                                 Text(
-                                    text = "PIN Admin Salah. Silakan coba lagi.",
+                                    text = "PIN Salah!",
                                     color = GamingColors.NeonRed,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(top = 8.dp)
+                                    modifier = Modifier.padding(top = 12.dp)
                                 )
                             }
                         }
                     }
                 } else {
-                    // Dashboard Admin (Tabs)
                     TabRow(
                         selectedTabIndex = selectedTab,
-                        containerColor = Color(0xFF101B2E),
+                        containerColor = Color.Transparent,
                         contentColor = GamingColors.NeonCyan,
                         indicator = { tabPositions ->
                             TabRowDefaults.SecondaryIndicator(
                                 Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                                color = GamingColors.NeonCyan
+                                color = GamingColors.NeonCyan,
+                                height = 3.dp
                             )
                         }
                     ) {
                         Tab(
                             selected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
-                            text = { Text("WAKTU & TARIF", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                            text = { Text("WAKTU", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                             icon = { Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp)) }
                         )
                         Tab(
@@ -328,11 +325,10 @@ fun AdminDashboardDialog(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     when (selectedTab) {
                         0 -> {
-                            // TAB 0: Waktu & Tarif
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -342,9 +338,9 @@ fun AdminDashboardDialog(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(Color(0xFF152238))
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
@@ -354,7 +350,7 @@ fun AdminDashboardDialog(
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
-                                            text = "Stopwatch hitung maju + tagihan real-time Rp 100/menit",
+                                            text = "Tagihan berjalan Rp 100/menit",
                                             color = GamingColors.TextSecondary,
                                             fontSize = 10.sp
                                         )
@@ -364,73 +360,65 @@ fun AdminDashboardDialog(
                                         onCheckedChange = { isUnlimitedInput = it },
                                         colors = SwitchDefaults.colors(
                                             checkedThumbColor = GamingColors.NeonCyan,
-                                            checkedTrackColor = GamingColors.NeonCyan.copy(alpha = 0.5f)
+                                            checkedTrackColor = GamingColors.NeonCyan.copy(alpha = 0.3f)
                                         )
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
                                 if (!isUnlimitedInput) {
-                                    Text(
-                                        text = "ATUR DURASI PAKET SEWA REGULER",
-                                        color = GamingColors.NeonCyan,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-
                                     Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         OutlinedTextField(
                                             value = hoursInput,
                                             onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) hoursInput = it },
-                                            label = { Text("Jam", fontSize = 10.sp) },
+                                            label = { Text("Jam", fontSize = 11.sp) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                             modifier = Modifier.weight(1f)
                                         )
                                         OutlinedTextField(
                                             value = minutesInput,
                                             onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) minutesInput = it },
-                                            label = { Text("Menit", fontSize = 10.sp) },
+                                            label = { Text("Menit", fontSize = 11.sp) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                             modifier = Modifier.weight(1f)
                                         )
                                         OutlinedTextField(
                                             value = secondsInput,
                                             onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) secondsInput = it },
-                                            label = { Text("Detik", fontSize = 10.sp) },
+                                            label = { Text("Detik", fontSize = 11.sp) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                             modifier = Modifier.weight(1f)
                                         )
                                         OutlinedTextField(
                                             value = bonusMinutesInput,
                                             onValueChange = { if (it.length <= 3 && it.all { c -> c.isDigit() }) bonusMinutesInput = it },
-                                            label = { Text("Bonus (Mnt)", fontSize = 10.sp) },
+                                            label = { Text("Bonus", fontSize = 11.sp) },
                                             singleLine = true,
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonGreen, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                             modifier = Modifier.weight(1.2f)
                                         )
                                     }
 
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(12.dp))
 
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .clip(RoundedCornerShape(10.dp))
                                             .background(Color(0xFF0F2537))
-                                            .border(1.dp, GamingColors.NeonGreen.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                                            .border(1.dp, GamingColors.NeonGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                                            .padding(horizontal = 14.dp, vertical = 10.dp)
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
@@ -438,26 +426,25 @@ fun AdminDashboardDialog(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Text(
-                                                text = "Estimasi Harga Paket:",
+                                                text = "Estimasi Harga:",
                                                 color = Color.White,
-                                                fontSize = 12.sp,
+                                                fontSize = 13.sp,
                                                 fontWeight = FontWeight.Medium
                                             )
                                             Text(
                                                 text = SecurityHelper.formatRupiah(estimatedPrice),
                                                 color = GamingColors.NeonGreen,
-                                                fontSize = 15.sp,
-                                                fontWeight = FontWeight.ExtraBold
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Black
                                             )
                                         }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
 
                                 Button(
                                     onClick = {
-                                        // PERBAIKAN BUG: Default fallback diubah dari 1 ke 0
                                         val h = hoursInput.toIntOrNull() ?: 0
                                         val m = minutesInput.toIntOrNull() ?: 0
                                         val s = secondsInput.toIntOrNull() ?: 0
@@ -465,30 +452,31 @@ fun AdminDashboardDialog(
                                         onSaveDuration(h, m, s, b, isUnlimitedInput)
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = GamingColors.NeonCyan, contentColor = Color.Black),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth().height(48.dp)
                                 ) {
-                                    Text("TERAPKAN PENGATURAN DURASI", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("TERAPKAN PENGATURAN DURASI", fontWeight = FontWeight.Black, fontSize = 13.sp)
                                 }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
                                 Text(
                                     text = "TAMBAH WAKTU CEPAT KE SESI AKTIF",
                                     color = GamingColors.TextSecondary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     listOf("+15 Mnt" to 900L, "+30 Mnt" to 1800L, "+1 Jam" to 3600L, "+2 Jam" to 7200L).forEach { (lbl, sec) ->
                                         Button(
                                             onClick = { onAddTime(sec) },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B), contentColor = Color.White),
-                                            shape = RoundedCornerShape(6.dp),
+                                            border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
+                                            shape = RoundedCornerShape(8.dp),
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Text(lbl, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -499,46 +487,45 @@ fun AdminDashboardDialog(
                         }
 
                         1 -> {
-                            // TAB 1: Identitas
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .verticalScroll(rememberScrollState())
                             ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedTextField(
                                         value = rentalNameInput,
                                         onValueChange = { rentalNameInput = it },
-                                        label = { Text("Nama Usaha/Rental") },
+                                        label = { Text("Nama Rental") },
                                         singleLine = true,
-                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                         modifier = Modifier.weight(1.3f)
                                     )
                                     OutlinedTextField(
                                         value = phoneLabelInput,
                                         onValueChange = { phoneLabelInput = it },
-                                        label = { Text("Label (HP NO. 1)") },
+                                        label = { Text("Label HP (HP NO. 1)") },
                                         singleLine = true,
-                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(Color(0xFF152238))
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Auto-Start Launcher Saat HP Nyala",
+                                            text = "Auto-Start Saat HP Menyala",
                                             color = Color.White,
-                                            fontSize = 12.sp,
+                                            fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
@@ -549,170 +536,185 @@ fun AdminDashboardDialog(
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
                                 Text(
-                                    text = "3 TEKS BANNER BERJALAN DI LAYAR KUNCI",
+                                    text = "TEKS BANNER DI LAYAR KUNCI",
                                     color = GamingColors.NeonCyan,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
                                 OutlinedTextField(
                                     value = banner1Input,
                                     onValueChange = { banner1Input = it },
                                     label = { Text("Teks Banner 1") },
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 OutlinedTextField(
                                     value = banner2Input,
                                     onValueChange = { banner2Input = it },
                                     label = { Text("Teks Banner 2") },
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 OutlinedTextField(
                                     value = banner3Input,
                                     onValueChange = { banner3Input = it },
                                     label = { Text("Teks Banner 3") },
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                     modifier = Modifier.fillMaxWidth()
                                 )
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
                                 Button(
                                     onClick = {
                                         onSaveIdentity(rentalNameInput, phoneLabelInput, banner1Input, banner2Input, banner3Input, autoStartInput)
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = GamingColors.NeonCyan, contentColor = Color.Black),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth().height(48.dp)
                                 ) {
-                                    Text("SIMPAN IDENTITAS & BANNER", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("SIMPAN IDENTITAS", fontWeight = FontWeight.Black, fontSize = 13.sp)
                                 }
                             }
                         }
 
                         2 -> {
-                            // TAB 2: Whitelist (PERBAIKAN UI HORIZONTAL)
                             Column(modifier = Modifier.fillMaxSize()) {
-                                Text(
-                                    text = "PILIH APLIKASI YANG DIIZINKAN",
-                                    color = GamingColors.NeonCyan,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Geser ke kanan/kiri untuk melihat aplikasi lain:",
-                                    color = GamingColors.TextSecondary,
-                                    fontSize = 10.sp
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "PILIH APLIKASI YANG DIIZINKAN",
+                                        color = GamingColors.NeonCyan,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Geser >>",
+                                        color = Color.Gray,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
 
                                 LazyRow(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(12.dp))
                                         .background(Color(0xFF0F172A)),
-                                    contentPadding = PaddingValues(8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    contentPadding = PaddingValues(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     items(allInstalledApps) { app ->
                                         val isChecked = selectedWhitelist.contains(app.packageName)
                                         
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center,
                                             modifier = Modifier
-                                                .width(80.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (isChecked) Color(0xFF1E3A8A) else Color(0xFF1E293B))
+                                                .width(100.dp)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(if (isChecked) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color(0xFF1E293B))
                                                 .border(
-                                                    BorderStroke(1.dp, if (isChecked) GamingColors.NeonCyan else Color.Gray.copy(alpha = 0.3f)),
-                                                    RoundedCornerShape(8.dp)
+                                                    BorderStroke(2.dp, if (isChecked) GamingColors.NeonCyan else Color.Transparent),
+                                                    RoundedCornerShape(14.dp)
                                                 )
                                                 .clickable {
                                                     val updated = selectedWhitelist.toMutableSet()
                                                     if (isChecked) updated.remove(app.packageName) else updated.add(app.packageName)
                                                     selectedWhitelist = updated
                                                 }
-                                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                                                .padding(10.dp)
                                         ) {
-                                            // Placeholder Ikon (Bisa diganti dengan Image asli jika ada)
                                             Box(
                                                 contentAlignment = Alignment.Center,
                                                 modifier = Modifier
-                                                    .size(36.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color.DarkGray.copy(alpha = 0.5f))
+                                                    .size(48.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(Color.Black.copy(alpha = 0.4f))
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Android,
                                                     contentDescription = null,
-                                                    tint = if (isChecked) Color.White else Color.LightGray
+                                                    tint = if (isChecked) Color.White else Color.Gray,
+                                                    modifier = Modifier.size(32.dp)
                                                 )
                                             }
-                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            
                                             Text(
                                                 text = app.label,
-                                                color = Color.White,
-                                                fontSize = 10.sp,
+                                                color = if (isChecked) Color.White else Color.LightGray,
+                                                fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 maxLines = 2,
+                                                minLines = 2,
                                                 overflow = TextOverflow.Ellipsis,
                                                 textAlign = TextAlign.Center,
-                                                lineHeight = 12.sp
+                                                lineHeight = 14.sp
                                             )
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Checkbox(
-                                                checked = isChecked,
-                                                onCheckedChange = null, // Klik ditangani oleh Column
-                                                colors = CheckboxDefaults.colors(
-                                                    checkedColor = GamingColors.NeonCyan,
-                                                    checkmarkColor = Color.Black,
-                                                    uncheckedColor = Color.Gray
-                                                ),
-                                                modifier = Modifier.size(20.dp)
-                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isChecked) GamingColors.NeonCyan else Color.Transparent)
+                                                    .border(1.dp, if (isChecked) GamingColors.NeonCyan else Color.Gray, CircleShape)
+                                            ) {
+                                                if (isChecked) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        tint = Color.Black,
+                                                        modifier = Modifier.size(16.dp).align(Alignment.Center)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
                                 Button(
                                     onClick = { onSaveWhitelist(selectedWhitelist) },
                                     colors = ButtonDefaults.buttonColors(containerColor = GamingColors.NeonCyan, contentColor = Color.Black),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth().height(48.dp)
                                 ) {
-                                    Text("SIMPAN DAFTAR WHITELIST (${selectedWhitelist.size} APLIKASI)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("SIMPAN WHITELIST (${selectedWhitelist.size} APLIKASI)", fontWeight = FontWeight.Black, fontSize = 13.sp)
                                 }
                             }
                         }
 
                         3 -> {
-                            // TAB 3: Keamanan
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .verticalScroll(rememberScrollState())
                             ) {
                                 Text(
-                                    text = "GANTI 6-DIGIT MASTER PIN ADMIN",
+                                    text = "GANTI MASTER PIN",
                                     color = GamingColors.NeonCyan,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -724,24 +726,24 @@ fun AdminDashboardDialog(
                                         label = { Text("PIN Baru (6 Angka)") },
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GamingColors.NeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                                         modifier = Modifier.weight(1f)
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Button(
                                         onClick = {
                                             if (newPinInput.length == 6) {
                                                 onChangePin(newPinInput)
-                                                newPinMessage = "Master PIN 6-digit berhasil disimpan!"
+                                                newPinMessage = "PIN berhasil disimpan!"
                                                 newPinInput = ""
                                             } else {
-                                                newPinMessage = "PIN harus tepat 6 angka."
+                                                newPinMessage = "PIN harus 6 angka."
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = GamingColors.NeonMagenta, contentColor = Color.White),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Text("SIMPAN PIN", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("SIMPAN", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
@@ -750,39 +752,39 @@ fun AdminDashboardDialog(
                                         text = newPinMessage!!,
                                         color = GamingColors.NeonGreen,
                                         fontSize = 11.sp,
-                                        modifier = Modifier.padding(top = 4.dp)
+                                        modifier = Modifier.padding(top = 6.dp)
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
                                 Text(
-                                    text = "STATUS KIOSK HARD LOCK",
+                                    text = "STATUS KIOSK",
                                     color = GamingColors.NeonCyan,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF0F172A))
-                                        .padding(10.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF152238))
+                                        .padding(12.dp)
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = if (isDeviceOwner) "Device Owner: AKTIF" else "Device Owner: Belum Diset",
                                             color = if (isDeviceOwner) GamingColors.NeonGreen else GamingColors.NeonAmber,
-                                            fontSize = 11.sp,
+                                            fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
-                                            text = if (isLockTaskActive) "LockTask Mode: AKTIF" else "LockTask Mode: Standby",
+                                            text = if (isLockTaskActive) "LockTask: AKTIF" else "LockTask: Standby",
                                             color = GamingColors.TextSecondary,
-                                            fontSize = 10.sp
+                                            fontSize = 11.sp
                                         )
                                     }
                                     Button(
@@ -791,34 +793,34 @@ fun AdminDashboardDialog(
                                             containerColor = if (isLockTaskActive) GamingColors.NeonRed else GamingColors.NeonCyan,
                                             contentColor = Color.Black
                                         ),
-                                        shape = RoundedCornerShape(6.dp)
+                                        shape = RoundedCornerShape(8.dp)
                                     ) {
                                         Icon(
                                             imageVector = if (isLockTaskActive) Icons.Default.LockOpen else Icons.Default.Lock,
                                             contentDescription = null,
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(16.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = if (isLockTaskActive) "LEPAS KIOSK" else "KUNCI KIOSK",
-                                            fontSize = 10.sp,
+                                            text = if (isLockTaskActive) "LEPAS" else "KUNCI",
+                                            fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
                                 Button(
                                     onClick = onCheckUpdate,
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937), contentColor = GamingColors.NeonCyan),
                                     border = BorderStroke(1.dp, GamingColors.NeonCyan.copy(alpha = 0.5f)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth().height(48.dp)
                                 ) {
-                                    Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("CEK PEMBARUAN GITHUB RELEASE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("CEK PEMBARUAN APLIKASI", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
