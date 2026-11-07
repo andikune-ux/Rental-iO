@@ -424,23 +424,34 @@ fun AdminDashboardDialog(
                                             .border(1.dp, GamingColors.NeonGreen.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
                                             .padding(horizontal = 14.dp, vertical = 10.dp)
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text(
-                                                text = "Estimasi Harga:",
-                                                color = Color.White,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                            Text(
-                                                text = SecurityHelper.formatRupiah(estimatedPrice),
-                                                color = GamingColors.NeonGreen,
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Black
-                                            )
+                                        Column {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    text = "Estimasi Harga Paket:",
+                                                    color = Color.White,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Text(
+                                                    text = SecurityHelper.formatRupiah(estimatedPrice),
+                                                    color = GamingColors.NeonGreen,
+                                                    fontSize = 16.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
+                                            val bonus = bonusMinutesInput.toIntOrNull() ?: 0
+                                            if (bonus > 0) {
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "*Bonus $bonus Menit gratis (tidak menambah tagihan).",
+                                                    color = GamingColors.NeonCyan,
+                                                    fontSize = 10.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }

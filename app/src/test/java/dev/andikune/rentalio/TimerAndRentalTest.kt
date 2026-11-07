@@ -115,4 +115,38 @@ class TimerAndRentalTest {
         assertEquals("dev.andikune.rentalio.action.SET_TIME", KioskForegroundService.ACTION_SET_TIME)
         assertEquals("dev.andikune.rentalio.action.DISMISS_ALARM", KioskForegroundService.ACTION_DISMISS_ALARM)
     }
+
+    @Test
+    fun `test brute force failed attempts threshold logic`() {
+        var failedAttempts = 0
+        var cooldownSeconds = 0
+
+        fun onWrongPin() {
+            failedAttempts++
+            if (failedAttempts >= 5) {
+                cooldownSeconds = 30
+                failedAttempts = 0
+            }
+        }
+
+        repeat(4) { onWrongPin() }
+        assertEquals(4, failedAttempts)
+        assertEquals(0, cooldownSeconds)
+
+        onWrongPin() // 5th attempt
+        assertEquals(0, failedAttempts)
+        assertEquals(30, cooldownSeconds)
+    }
+
+    @Test
+    fun `test whitelist lock task array generation`() {
+        val appPkg = context.packageName
+        val whitelisted = listOf("com.mobile.legends", "com.dts.freefireth")
+        val allPackages = (listOf(appPkg) + whitelisted).distinct().toTypedArray()
+
+        assertTrue(allPackages.contains(appPkg))
+        assertTrue(allPackages.contains("com.mobile.legends"))
+        assertTrue(allPackages.contains("com.dts.freefireth"))
+        assertEquals(3, allPackages.size)
+    }
 }

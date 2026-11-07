@@ -53,13 +53,11 @@ class DeviceOwnerManager(private val context: Context) {
         }
     }
 
-    fun startLockTask(activity: Activity): Boolean {
+    fun startLockTask(activity: Activity, whitelistedPackages: List<String> = emptyList()): Boolean {
         return try {
             if (isDeviceOwner()) {
-                val packages = dpm.getLockTaskPackages(adminComponent)
-                if (!packages.contains(context.packageName)) {
-                    dpm.setLockTaskPackages(adminComponent, arrayOf(context.packageName))
-                }
+                val allPackages = (listOf(context.packageName) + whitelistedPackages).distinct().toTypedArray()
+                dpm.setLockTaskPackages(adminComponent, allPackages)
             }
             activity.startLockTask()
             true

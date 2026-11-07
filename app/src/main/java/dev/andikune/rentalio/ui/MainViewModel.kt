@@ -263,6 +263,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             preferences.saveWhitelistPackages(packages)
             repository.updateWhitelistPackages(packages.toList())
             filterWhitelistApps(packages)
+            if (deviceOwnerManager.isDeviceOwner()) {
+                deviceOwnerManager.configureKioskPolicies(packages.toList())
+            }
             _uiState.update { it.copy(showAdminDialog = false) }
         }
     }
@@ -343,7 +346,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleLockTask(enable: Boolean, activity: Activity) {
         if (enable) {
-            val success = deviceOwnerManager.startLockTask(activity)
+            val whitelisted = preferences.getSettings().whitelistPackages.toList()
+            deviceOwnerManager.configureKioskPolicies(whitelisted)
+            val success = deviceOwnerManager.startLockTask(activity, whitelisted)
             _uiState.update { it.copy(isLockTaskModeActive = success) }
         } else {
             val success = deviceOwnerManager.stopLockTask(activity)

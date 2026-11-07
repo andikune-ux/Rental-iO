@@ -741,6 +741,15 @@ fun RightPanelAndOverlays(
     var showPinDialogForFinishSession by remember { mutableStateOf(false) }
     var finishPinInput by remember { mutableStateOf("") }
     var finishPinError by remember { mutableStateOf(false) }
+    var failedAttempts by remember { mutableStateOf(0) }
+    var lockCooldownSeconds by remember { mutableStateOf(0) }
+
+    LaunchedEffect(lockCooldownSeconds) {
+        if (lockCooldownSeconds > 0) {
+            delay(1000L)
+            lockCooldownSeconds--
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -1098,17 +1107,25 @@ fun RightPanelAndOverlays(
                                                     when (k) {
                                                         "C" -> if (finishPinInput.isNotEmpty()) finishPinInput = finishPinInput.dropLast(1)
                                                         "OK" -> {
+                                                            if (lockCooldownSeconds > 0) return@clickable
                                                             if (onVerifyPin(finishPinInput)) {
                                                                 showPinDialogForFinishSession = false
                                                                 finishPinInput = ""
                                                                 finishPinError = false
+                                                                failedAttempts = 0
                                                                 onFinishUnlimited()
                                                             } else {
                                                                 finishPinError = true
                                                                 finishPinInput = ""
+                                                                failedAttempts++
+                                                                if (failedAttempts >= 5) {
+                                                                    lockCooldownSeconds = 30
+                                                                    failedAttempts = 0
+                                                                }
                                                             }
                                                         }
                                                         else -> {
+                                                            if (lockCooldownSeconds > 0) return@clickable
                                                             if (finishPinInput.length < 6) {
                                                                 val next = finishPinInput + k
                                                                 finishPinInput = next
@@ -1117,10 +1134,16 @@ fun RightPanelAndOverlays(
                                                                         showPinDialogForFinishSession = false
                                                                         finishPinInput = ""
                                                                         finishPinError = false
+                                                                        failedAttempts = 0
                                                                         onFinishUnlimited()
                                                                     } else {
                                                                         finishPinError = true
                                                                         finishPinInput = ""
+                                                                        failedAttempts++
+                                                                        if (failedAttempts >= 5) {
+                                                                            lockCooldownSeconds = 30
+                                                                            failedAttempts = 0
+                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -1140,9 +1163,18 @@ fun RightPanelAndOverlays(
                             }
                         }
 
-                        if (finishPinError) {
+                        if (lockCooldownSeconds > 0) {
                             Text(
-                                text = "PIN Admin Salah!",
+                                text = "Terlalu banyak percobaan salah! Coba lagi dalam $lockCooldownSeconds detik.",
+                                color = GamingColors.NeonRed,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        } else if (finishPinError) {
+                            Text(
+                                text = "PIN Admin Salah! Percobaan: $failedAttempts/5",
                                 color = GamingColors.NeonRed,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,

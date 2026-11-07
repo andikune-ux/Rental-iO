@@ -75,6 +75,25 @@ fun GameOverOverlay(
     modifier: Modifier = Modifier
 ) {
     var enteredPin by remember { mutableStateOf("") }
+    var failedAttempts by remember { mutableStateOf(0) }
+    var lockCooldownSeconds by remember { mutableStateOf(0) }
+
+    LaunchedEffect(lockCooldownSeconds) {
+        if (lockCooldownSeconds > 0) {
+            delay(1000L)
+            lockCooldownSeconds--
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        if (!errorMessage.isNullOrEmpty()) {
+            failedAttempts++
+            if (failedAttempts >= 5) {
+                lockCooldownSeconds = 30
+                failedAttempts = 0
+            }
+        }
+    }
 
     val infiniteTransition = rememberInfiniteTransition(label = "gameOverFlash")
     val redAlpha by infiniteTransition.animateFloat(
@@ -195,10 +214,19 @@ fun GameOverOverlay(
                         lineHeight = 20.sp
                     )
 
-                    if (!errorMessage.isNullOrEmpty()) {
+                    if (lockCooldownSeconds > 0) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = errorMessage,
+                            text = "Terlalu banyak percobaan! Tunggu $lockCooldownSeconds detik.",
+                            color = GamingColors.NeonRed,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    } else if (!errorMessage.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "$errorMessage (Salah $failedAttempts/5)",
                             color = GamingColors.NeonRed,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -364,16 +392,22 @@ fun GameOverOverlay(
                                                     }
                                                 }
                                                 "OK" -> {
+                                                    if (lockCooldownSeconds > 0) return@clickable
                                                     if (enteredPin.isNotEmpty()) {
-                                                        onUnlockWithPin(enteredPin)
+                                                        val pinToSubmit = enteredPin
+                                                        enteredPin = ""
+                                                        onUnlockWithPin(pinToSubmit)
                                                     }
                                                 }
                                                 else -> {
+                                                    if (lockCooldownSeconds > 0) return@clickable
                                                     if (enteredPin.length < 6) {
                                                         val updated = enteredPin + key
                                                         enteredPin = updated
                                                         if (updated.length == 6) {
-                                                            onUnlockWithPin(updated)
+                                                            val pinToSubmit = updated
+                                                            enteredPin = ""
+                                                            onUnlockWithPin(pinToSubmit)
                                                         }
                                                     }
                                                 }
