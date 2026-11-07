@@ -231,7 +231,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             preferences.saveUnlimitedMode(isUnlimited)
 
             if (isUnlimited) {
-                repository.setRemainingSeconds(0L)
+                repository.updateTimer(0L, isExpired = false)
             } else {
                 val totalSeconds = (hours * 3600L) + (minutes * 60L) + seconds + (bonusMinutes * 60L)
                 repository.setRemainingSeconds(totalSeconds)
@@ -267,7 +267,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun verifyAdminPin(pin: String): Boolean {
         val s = preferences.getSettings()
-        return pin == s.adminPin || pin == "123456"
+        return pin == s.adminPin
     }
 
     fun unlockWithPin(pin: String) {
@@ -328,7 +328,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissUnlimitedSummary() {
         viewModelScope.launch {
-            repository.setRemainingSeconds(0L)
+            repository.updateTimer(0L, isExpired = false)
             _uiState.update {
                 it.copy(
                     showUnlimitedSummaryDialog = false,

@@ -101,16 +101,22 @@ fun UpdateDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (downloadProgress > 0f && downloadProgress < 1f) {
+                val progressFraction = when {
+                    downloadProgress in 0f..1f -> downloadProgress
+                    downloadProgress > 1f -> (downloadProgress / 100f).coerceIn(0f, 1f)
+                    else -> -1f
+                }
+
+                if (progressFraction >= 0f) {
                     Text(
-                        text = "Mengunduh... ${(downloadProgress * 100).toInt()}%",
+                        text = if (progressFraction >= 1f) "Mengunduh selesai (100%)" else "Mengunduh... ${(progressFraction * 100).toInt()}%",
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
-                        progress = downloadProgress,
+                        progress = { progressFraction },
                         modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                         color = GamingColors.NeonCyan,
                         trackColor = Color.DarkGray

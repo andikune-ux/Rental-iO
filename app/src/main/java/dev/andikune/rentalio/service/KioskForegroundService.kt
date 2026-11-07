@@ -133,6 +133,11 @@ class KioskForegroundService : Service() {
                 val currentPrefs = prefs.getSettings()
                 if (currentPrefs.isUnlimitedMode) {
                     // Unlimited Mode (Count Up)
+                    if (isExpired) {
+                        isExpired = false
+                        stopAlarm()
+                    }
+                    dev.andikune.rentalio.utils.SystemOverlayHelper.hidePassThroughCountdown()
                     currentSeconds++
                     repository.updateTimer(currentSeconds, isExpired = false)
                     val bill = dev.andikune.rentalio.utils.SecurityHelper.calculateUnlimitedCost(currentSeconds)

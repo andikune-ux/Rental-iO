@@ -80,7 +80,7 @@ class RentalRepository(
     suspend fun verifyAdminPin(pin: String): Boolean = withContext(Dispatchers.IO) {
         val current = dao.getRentalState() ?: LocalRentalState()
         val prefs = dev.andikune.rentalio.data.local.RentalPreferences(context).getSettings()
-        pin == current.localAdminPinHash || pin == prefs.adminPin || pin == "123456"
+        pin == current.localAdminPinHash || pin == prefs.adminPin
     }
 
     suspend fun updateAdminPin(newPin: String) = withContext(Dispatchers.IO) {
