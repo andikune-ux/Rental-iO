@@ -1114,7 +1114,7 @@ fun RightPanelAndOverlays(
         if (state.showUpdateDialog && state.updateRelease != null) {
             UpdateDialog(
                 release = state.updateRelease,
-                downloadProgress = state.downloadProgress.toFloat(),
+                downloadProgress = if (state.downloadProgress >= 0) state.downloadProgress / 100f else -1f,
                 onUpdateClick = onUpdateNow,
                 onLaterClick = onLaterUpdate,
                 onSkipClick = onLaterUpdate
