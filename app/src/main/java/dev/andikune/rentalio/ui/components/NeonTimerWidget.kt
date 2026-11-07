@@ -122,8 +122,9 @@ fun NeonTimerWidget(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Live running bill: "Tagihan saat ini: Rp X.XXX" (Minutes * 100)
-            val currentBill = SecurityHelper.calculateUnlimitedCost(unlimitedElapsedSeconds)
+            // Live running bill: "Tagihan saat ini: Rp X.XXX"
+            val exactBill = SecurityHelper.calculateUnlimitedExactCost(unlimitedElapsedSeconds)
+            val roundedBill = SecurityHelper.calculateUnlimitedCost(unlimitedElapsedSeconds)
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
@@ -144,7 +145,11 @@ fun NeonTimerWidget(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Tagihan saat ini: ${SecurityHelper.formatRupiah(currentBill)}",
+                        text = if (exactBill == roundedBill) {
+                            "Tagihan: ${SecurityHelper.formatRupiah(roundedBill)}"
+                        } else {
+                            "Tagihan: ${SecurityHelper.formatRupiah(exactBill)} (Dibulatkan: ${SecurityHelper.formatRupiah(roundedBill)})"
+                        },
                         color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold

@@ -39,11 +39,33 @@ object SecurityHelper {
 
     /**
      * Sesuai Bagian 7 (Tagihan Unlimited):
-     * Total Menit * Rp 100
+     * 30 menit pertama flat Rp 3.000 (jika <= 30 menit)
+     * Setelah 30 menit, bertambah Rp 100 / menit (misal 31 menit = Rp 3.100)
+     */
+    fun calculateUnlimitedExactCost(seconds: Long): Long {
+        val totalMinutes = seconds.coerceAtLeast(0L) / 60L
+        return if (totalMinutes <= 30L) {
+            3000L
+        } else {
+            3000L + (totalMinutes - 30L) * 100L
+        }
+    }
+
+    /**
+     * Pembulatan ke bawah per kelipatan Rp 500:
+     * Contoh: Rp 3.100 - Rp 3.400 dibulatkan ke Rp 3.000
+     *         Rp 3.600 - Rp 3.900 dibulatkan ke Rp 3.500
+     */
+    fun roundToNearest500(amount: Long): Long {
+        return (amount / 500L) * 500L
+    }
+
+    /**
+     * Tagihan akhir setelah pembulatan
      */
     fun calculateUnlimitedCost(seconds: Long): Long {
-        val totalMinutes = seconds.coerceAtLeast(0L) / 60L
-        return totalMinutes * 100L
+        val exact = calculateUnlimitedExactCost(seconds)
+        return roundToNearest500(exact)
     }
 
     fun formatRupiah(amount: Long): String {

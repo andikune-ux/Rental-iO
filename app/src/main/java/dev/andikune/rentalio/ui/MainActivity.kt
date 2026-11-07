@@ -1217,21 +1217,34 @@ fun RightPanelAndOverlays(
                                     Text("Total Waktu:", color = GamingColors.TextSecondary, fontSize = 12.sp)
                                     Text(SecurityHelper.formatDuration(state.unlimitedSummarySeconds), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
+                                val exactCost = SecurityHelper.calculateUnlimitedExactCost(state.unlimitedSummarySeconds)
                                 Row(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Tarif / Menit:", color = GamingColors.TextSecondary, fontSize = 12.sp)
-                                    Text("Rp 100", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Tarif Unlimited:", color = GamingColors.TextSecondary, fontSize = 12.sp)
+                                    Text("30 mnt pertama Rp 3.000, lalu Rp 100/mnt", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                }
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Hitungan Asli:", color = GamingColors.TextSecondary, fontSize = 12.sp)
+                                    Text(SecurityHelper.formatRupiah(exactCost), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Row(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("TOTAL TAGIHAN:", color = GamingColors.NeonCyan, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text("TOTAL TAGIHAN (Dibulatkan):", color = GamingColors.NeonCyan, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
                                     Text(SecurityHelper.formatRupiah(state.unlimitedSummaryCost), color = GamingColors.NeonGreen, fontSize = 16.sp, fontWeight = FontWeight.Black)
                                 }
+                                Text(
+                                    text = "*Catatan: Tagihan dibulatkan ke bawah ke kelipatan Rp 500 terdekat.",
+                                    color = GamingColors.TextSecondary,
+                                    fontSize = 10.sp
+                                )
                             }
                         }
 

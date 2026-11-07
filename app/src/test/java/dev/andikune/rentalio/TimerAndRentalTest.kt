@@ -51,19 +51,44 @@ class TimerAndRentalTest {
 
     @Test
     fun `test unlimited mode billing starting from zero`() {
-        // At 0 seconds, cost should be 0
-        val zeroCost = SecurityHelper.calculateUnlimitedCost(0L)
-        assertEquals(0L, zeroCost)
+        // 30 menit pertama flat Rp 3.000
+        val zeroCostExact = SecurityHelper.calculateUnlimitedExactCost(0L)
+        assertEquals(3000L, zeroCostExact)
 
-        // At 59 seconds, minutes = 59/60 = 0 -> cost = 0
-        val underMinuteCost = SecurityHelper.calculateUnlimitedCost(59L)
-        assertEquals(0L, underMinuteCost)
+        val zeroCostRounded = SecurityHelper.calculateUnlimitedCost(0L)
+        assertEquals(3000L, zeroCostRounded)
 
-        // At 60 seconds (1 minute), cost should be 100
-        val oneMinuteCost = SecurityHelper.calculateUnlimitedCost(60L)
-        assertEquals(100L, oneMinuteCost)
+        val under30MinCost = SecurityHelper.calculateUnlimitedCost(25 * 60L)
+        assertEquals(3000L, under30MinCost)
 
-        // At 3600 seconds (60 minutes), cost should be 6000
+        val thirtyMinCost = SecurityHelper.calculateUnlimitedCost(30 * 60L)
+        assertEquals(3000L, thirtyMinCost)
+
+        // 31 menit: 3000 + 100 = 3100 -> dibulatkan jadi 3000
+        val thirtyOneMinExact = SecurityHelper.calculateUnlimitedExactCost(31 * 60L)
+        assertEquals(3100L, thirtyOneMinExact)
+        val thirtyOneMinCost = SecurityHelper.calculateUnlimitedCost(31 * 60L)
+        assertEquals(3000L, thirtyOneMinCost)
+
+        // 34 menit: 3000 + 400 = 3400 -> dibulatkan jadi 3000
+        val thirtyFourMinCost = SecurityHelper.calculateUnlimitedCost(34 * 60L)
+        assertEquals(3000L, thirtyFourMinCost)
+
+        // 35 menit: 3000 + 500 = 3500 -> pas 3500
+        val thirtyFiveMinCost = SecurityHelper.calculateUnlimitedCost(35 * 60L)
+        assertEquals(3500L, thirtyFiveMinCost)
+
+        // 36 menit: 3000 + 600 = 3600 -> dibulatkan jadi 3500
+        val thirtySixMinExact = SecurityHelper.calculateUnlimitedExactCost(36 * 60L)
+        assertEquals(3600L, thirtySixMinExact)
+        val thirtySixMinCost = SecurityHelper.calculateUnlimitedCost(36 * 60L)
+        assertEquals(3500L, thirtySixMinCost)
+
+        // 39 menit: 3000 + 900 = 3900 -> dibulatkan jadi 3500
+        val thirtyNineMinCost = SecurityHelper.calculateUnlimitedCost(39 * 60L)
+        assertEquals(3500L, thirtyNineMinCost)
+
+        // 60 menit: 3000 + (30 * 100) = 6000
         val oneHourCost = SecurityHelper.calculateUnlimitedCost(3600L)
         assertEquals(6000L, oneHourCost)
     }
