@@ -45,6 +45,7 @@ class KioskForegroundService : Service() {
         const val ACTION_START = "dev.andikune.rentalio.action.START_TIMER"
         const val ACTION_STOP = "dev.andikune.rentalio.action.STOP_TIMER"
         const val ACTION_ADD_TIME = "dev.andikune.rentalio.action.ADD_TIME"
+        const val ACTION_SET_TIME = "dev.andikune.rentalio.action.SET_TIME"
         const val ACTION_DISMISS_ALARM = "dev.andikune.rentalio.action.DISMISS_ALARM"
         const val EXTRA_SECONDS = "extra_seconds"
 
@@ -69,6 +70,14 @@ class KioskForegroundService : Service() {
         fun addTime(context: Context, seconds: Long) {
             val intent = Intent(context, KioskForegroundService::class.java).apply {
                 action = ACTION_ADD_TIME
+                putExtra(EXTRA_SECONDS, seconds)
+            }
+            context.startService(intent)
+        }
+
+        fun setTime(context: Context, seconds: Long) {
+            val intent = Intent(context, KioskForegroundService::class.java).apply {
+                action = ACTION_SET_TIME
                 putExtra(EXTRA_SECONDS, seconds)
             }
             context.startService(intent)
@@ -107,6 +116,24 @@ class KioskForegroundService : Service() {
                     serviceScope.launch {
                         repository.updateTimer(currentSeconds, isExpired = false)
                     }
+                    updateNotification(currentSeconds)
+                }
+            }
+            ACTION_SET_TIME -> {
+                val newSeconds = intent.getLongExtra(EXTRA_SECONDS, 0L)
+                currentSeconds = maxOf(0L, newSeconds)
+                isExpired = false
+                stopAlarm()
+                val prefs = dev.andikune.rentalio.data.local.RentalPreferences(applicationContext)
+                val currentPrefs = prefs.getSettings()
+                serviceScope.launch {
+                    repository.updateTimer(currentSeconds, isExpired = false)
+                }
+                if (currentPrefs.isUnlimitedMode) {
+                    val bill = SecurityHelper.calculateUnlimitedCost(currentSeconds)
+                    val text = "Unlimited: ${SecurityHelper.formatDuration(currentSeconds)} | Biaya: ${SecurityHelper.formatRupiah(bill)}"
+                    updateNotificationCustom(text)
+                } else {
                     updateNotification(currentSeconds)
                 }
             }
