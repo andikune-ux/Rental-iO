@@ -221,6 +221,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setRentalTime(seconds: Long) {
         viewModelScope.launch {
             repository.setRemainingSeconds(seconds)
+            KioskForegroundService.setTime(getApplication(), seconds)
             _uiState.update { it.copy(errorMessage = null) }
         }
     }
@@ -231,11 +232,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             preferences.saveUnlimitedMode(isUnlimited)
 
             if (isUnlimited) {
-                repository.updateTimer(0L, isExpired = false)
+                repository.setRemainingSeconds(0L)
+                KioskForegroundService.setTime(getApplication(), 0L)
             } else {
                 val totalSeconds = (hours * 3600L) + (minutes * 60L) + seconds + (bonusMinutes * 60L)
                 repository.setRemainingSeconds(totalSeconds)
-                KioskForegroundService.addTime(getApplication(), 0L)
+                KioskForegroundService.setTime(getApplication(), totalSeconds)
             }
             _uiState.update { it.copy(showAdminDialog = false) }
         }
@@ -328,7 +330,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissUnlimitedSummary() {
         viewModelScope.launch {
-            repository.updateTimer(0L, isExpired = false)
+            repository.setRemainingSeconds(0L)
+            KioskForegroundService.setTime(getApplication(), 0L)
             _uiState.update {
                 it.copy(
                     showUnlimitedSummaryDialog = false,

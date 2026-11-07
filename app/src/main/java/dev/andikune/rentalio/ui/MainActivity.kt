@@ -738,6 +738,10 @@ fun RightPanelAndOverlays(
     onFinishUnlimited: () -> Unit,
     onDismissSummary: () -> Unit
 ) {
+    var showPinDialogForFinishSession by remember { mutableStateOf(false) }
+    var finishPinInput by remember { mutableStateOf("") }
+    var finishPinError by remember { mutableStateOf(false) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -932,17 +936,22 @@ fun RightPanelAndOverlays(
                 if (state.isUnlimitedMode) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Button(
-                        onClick = onFinishUnlimited,
+                        onClick = {
+                            finishPinInput = ""
+                            finishPinError = false
+                            showPinDialogForFinishSession = true
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xCC0E1726),
                             contentColor = GamingColors.NeonCyan
                         ),
                         border = BorderStroke(1.dp, GamingColors.NeonCyan.copy(alpha = 0.5f)),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("btn_finish_rental")
                     ) {
                         Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("SELESAIKAN SEWA UNLIMITED", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("SELESAIKAN SEWA UNIT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1005,6 +1014,155 @@ fun RightPanelAndOverlays(
                 onUnlockWithPin = onUnlockWithPin,
                 errorMessage = state.errorMessage
             )
+        }
+
+        if (showPinDialogForFinishSession) {
+            Dialog(onDismissRequest = { showPinDialogForFinishSession = false }) {
+                Box(
+                    modifier = Modifier
+                        .width(360.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFF0F172A))
+                        .border(BorderStroke(2.dp, GamingColors.NeonCyan), RoundedCornerShape(18.dp))
+                        .padding(20.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AdminPanelSettings,
+                            contentDescription = null,
+                            tint = GamingColors.NeonCyan,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "PIN ADMIN DIBUTUHKAN",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Masukkan PIN Admin untuk menyelesaikan sewa unit",
+                            color = GamingColors.TextSecondary,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        ) {
+                            for (i in 0 until 6) {
+                                val isFilled = i < finishPinInput.length
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isFilled) GamingColors.NeonCyan else Color.White.copy(alpha = 0.15f))
+                                        .border(BorderStroke(1.dp, if (isFilled) GamingColors.NeonCyan else Color.Gray.copy(alpha = 0.4f)), CircleShape)
+                                )
+                            }
+                        }
+
+                        val keys = listOf(
+                            listOf("1", "2", "3"),
+                            listOf("4", "5", "6"),
+                            listOf("7", "8", "9"),
+                            listOf("C", "0", "OK")
+                        )
+
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            keys.forEach { row ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    row.forEach { k ->
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(38.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (k == "OK") GamingColors.NeonCyan else Color(0xFF1E293B))
+                                                .border(BorderStroke(1.dp, if (k == "OK") GamingColors.NeonCyan else Color.White.copy(alpha = 0.12f)), RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    when (k) {
+                                                        "C" -> if (finishPinInput.isNotEmpty()) finishPinInput = finishPinInput.dropLast(1)
+                                                        "OK" -> {
+                                                            if (onVerifyPin(finishPinInput)) {
+                                                                showPinDialogForFinishSession = false
+                                                                finishPinInput = ""
+                                                                finishPinError = false
+                                                                onFinishUnlimited()
+                                                            } else {
+                                                                finishPinError = true
+                                                                finishPinInput = ""
+                                                            }
+                                                        }
+                                                        else -> {
+                                                            if (finishPinInput.length < 6) {
+                                                                val next = finishPinInput + k
+                                                                finishPinInput = next
+                                                                if (next.length == 6) {
+                                                                    if (onVerifyPin(next)) {
+                                                                        showPinDialogForFinishSession = false
+                                                                        finishPinInput = ""
+                                                                        finishPinError = false
+                                                                        onFinishUnlimited()
+                                                                    } else {
+                                                                        finishPinError = true
+                                                                        finishPinInput = ""
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                        ) {
+                                            Text(
+                                                text = k,
+                                                color = if (k == "OK") Color.Black else Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (finishPinError) {
+                            Text(
+                                text = "PIN Admin Salah!",
+                                color = GamingColors.NeonRed,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = { showPinDialogForFinishSession = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155), contentColor = Color.White),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth().height(36.dp)
+                        ) {
+                            Text("BATAL", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
 
         if (state.showUnlimitedSummaryDialog) {
