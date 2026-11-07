@@ -275,10 +275,33 @@ class MainActivity : ComponentActivity() {
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
+    private fun collapseStatusBar() {
+        try {
+            @Suppress("WrongConstant")
+            val statusBarService = getSystemService("statusbar")
+            val statusBarManagerClass = Class.forName("android.app.StatusBarManager")
+            val collapseMethod = statusBarManagerClass.getMethod("collapsePanels")
+            collapseMethod.invoke(statusBarService)
+        } catch (_: Exception) {}
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             applyFullscreenImmersive()
+        } else {
+            // Blokir tombol Recents & Status Bar dropdown saat sesi rental berjalan
+            if (::viewModel.isInitialized) {
+                val state = viewModel.uiState.value
+                if (!state.showAdminDialog && (state.isExpired || state.isLockTaskModeActive)) {
+                    collapseStatusBar()
+                    try {
+                        @Suppress("DEPRECATION")
+                        val closeDialogIntent = Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
+                        sendBroadcast(closeDialogIntent)
+                    } catch (_: Exception) {}
+                }
+            }
         }
     }
 
@@ -589,6 +612,10 @@ class MainActivity : ComponentActivity() {
             viewModel.checkDeviceOwnerStatus()
             rvAppCarousel.post {
                 applyCShapeCurve()
+            }
+            if (viewModel.deviceOwnerManager.isDeviceOwner()) {
+                val whitelisted = viewModel.preferences.getSettings().whitelistPackages.toList()
+                viewModel.deviceOwnerManager.startLockTask(this, whitelisted)
             }
         }
     }
