@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.compose.ui.graphics.toArgb
 import androidx.recyclerview.widget.RecyclerView
 import dev.andikune.rentalio.R
 import dev.andikune.rentalio.data.model.WhitelistApp
@@ -26,12 +27,13 @@ class AppCarouselAdapter(
     private var itemHeightPx: Int = 0
     var focusedPosition: Int = -1
         private set
-    private var currentGlowColor: Int = GlassColors.AccentGlow.hashCode()
+    private var currentGlowColor: Int = GlassColors.AccentGlow.toArgb()
 
     fun setItems(newItems: List<WhitelistApp>, itemHeight: Int) {
         items.clear()
         items.addAll(newItems)
         this.itemHeightPx = itemHeight
+        focusedPosition = -1
         notifyDataSetChanged()
     }
 
@@ -42,7 +44,7 @@ class AppCarouselAdapter(
         }
     }
 
-    fun getItems(): List<WhitelistApp> = items
+    fun getItems(): List<WhitelistApp> = items.toList()
 
     fun getInitialCenterPosition(): Int {
         if (items.isEmpty()) return 0
@@ -53,8 +55,8 @@ class AppCarouselAdapter(
         val prev = focusedPosition
         focusedPosition = position
         currentGlowColor = glowColor
-        if (prev != -1) notifyItemChanged(prev)
-        if (position != -1) notifyItemChanged(position)
+        if (prev in 0 until itemCount) notifyItemChanged(prev)
+        if (position in 0 until itemCount) notifyItemChanged(position)
     }
 
     fun updateGlowColorDirectly(recyclerView: RecyclerView, glowColor: Int) {

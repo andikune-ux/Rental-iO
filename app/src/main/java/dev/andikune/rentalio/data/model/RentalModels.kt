@@ -62,15 +62,19 @@ data class GitHubReleaseAsset(
 )
 
 data class RentalUiState(
-    val remainingSeconds: Long = 3600L,
+    val remainingSeconds: Long = 0L,
     val isExpired: Boolean = false,
     val isLocked: Boolean = false,
     val isDeviceOwnerActive: Boolean = false,
     val isLockTaskModeActive: Boolean = false,
     val isSuspendedByOwner: Boolean = false,
+    val isSessionRunning: Boolean = false,
+    val isDefaultLauncher: Boolean = false,
+    val isOverlayGranted: Boolean = false,
     val selectedApp: WhitelistApp? = null,
     val whitelistApps: List<WhitelistApp> = emptyList(),
     val isCloudConnected: Boolean = false,
+    val isAdminUnlocked: Boolean = false,
     val showAdminDialog: Boolean = false,
     val showUpdateDialog: Boolean = false,
     val updateRelease: GitHubRelease? = null,
@@ -79,7 +83,7 @@ data class RentalUiState(
     // Phase 2 additions:
     val isUnlimitedMode: Boolean = false,
     val unlimitedElapsedSeconds: Long = 0L,
-    val packageHours: Int = 1,
+    val packageHours: Int = 0,
     val packageMinutes: Int = 0,
     val bonusMinutes: Int = 0,
     val rentalName: String = "UNE RENTAL HP",

@@ -48,9 +48,10 @@ fun NeonTimerWidget(
     packageHours: Int = 1,
     packageMinutes: Int = 0,
     bonusMinutes: Int = 0,
+    isSessionRunning: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val isCritical = !isUnlimitedMode && remainingSeconds in 1..300
+    val isCritical = isSessionRunning && !isUnlimitedMode && remainingSeconds in 1..300
     val infiniteTransition = rememberInfiniteTransition(label = "timerPulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -67,6 +68,7 @@ fun NeonTimerWidget(
             isUnlimitedMode -> GlassColors.AccentCyan
             isExpired -> GlassColors.AccentRed
             isCritical -> GlassColors.AccentAmber
+            !isSessionRunning -> GlassColors.TextSecondary
             else -> GlassColors.AccentGlow
         },
         label = "accentColor"
@@ -165,11 +167,15 @@ fun NeonTimerWidget(
                     modifier = Modifier.size(14.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                val packageText = buildString {
-                    append("Paket: ")
-                    if (packageHours > 0) append("${packageHours} Jam ")
-                    if (packageMinutes > 0 || packageHours == 0) append("${packageMinutes} Mnt ")
-                    if (bonusMinutes > 0) append("| Bonus: ${bonusMinutes} Mnt")
+                val packageText = if (!isSessionRunning && !isExpired) {
+                    "BELUM ADA SESI AKTIF"
+                } else {
+                    buildString {
+                        append("Paket: ")
+                        if (packageHours > 0) append("${packageHours} Jam ")
+                        if (packageMinutes > 0 || packageHours == 0) append("${packageMinutes} Mnt ")
+                        if (bonusMinutes > 0) append("| Bonus: ${bonusMinutes} Mnt")
+                    }
                 }
                 Text(
                     text = packageText,
@@ -191,6 +197,16 @@ fun NeonTimerWidget(
                 TimerBlock(value = minutes, label = "MNT", color = accentColor)
                 Text(":", color = accentColor, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 TimerBlock(value = seconds, label = "DTK", color = accentColor)
+            }
+
+            if (!isSessionRunning && !isExpired) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Menunggu Admin memulai sesi sewa",
+                    color = GlassColors.TextSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

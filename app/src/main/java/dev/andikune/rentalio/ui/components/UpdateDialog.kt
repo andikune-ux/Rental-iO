@@ -106,10 +106,15 @@ fun UpdateDialog(
                     downloadProgress > 1f -> (downloadProgress / 100f).coerceIn(0f, 1f)
                     else -> -1f
                 }
+                val isDownloading = progressFraction >= 0f && progressFraction < 1f
 
                 if (progressFraction >= 0f) {
                     Text(
-                        text = if (progressFraction >= 1f) "Mengunduh selesai (100%)" else "Mengunduh... ${(progressFraction * 100).toInt()}%",
+                        text = if (progressFraction >= 1f) {
+                            "Unduhan selesai. Lanjutkan izin pemasangan APK."
+                        } else {
+                            "Mengunduh... ${(progressFraction * 100).toInt()}%"
+                        },
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
@@ -126,11 +131,21 @@ fun UpdateDialog(
 
                 Button(
                     onClick = onUpdateClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = GamingColors.NeonCyan, contentColor = Color.Black),
+                    enabled = !isDownloading,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GamingColors.NeonCyan,
+                        contentColor = Color.Black,
+                        disabledContainerColor = GamingColors.NeonCyan.copy(alpha = 0.35f),
+                        disabledContentColor = Color.Black.copy(alpha = 0.6f)
+                    ),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                    Text("UNDUH & INSTALL SEKARANG", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        text = if (isDownloading) "MENGUNDUH..." else "UNDUH & INSTALL SEKARANG",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

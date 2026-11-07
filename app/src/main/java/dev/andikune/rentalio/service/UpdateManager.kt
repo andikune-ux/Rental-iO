@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import dev.andikune.rentalio.BuildConfig
@@ -16,7 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 
 class UpdateManager(
     private val context: Context,
@@ -67,11 +67,13 @@ class UpdateManager(
     }
 
     suspend fun downloadAndInstallApk(release: GitHubRelease): Boolean = withContext(Dispatchers.IO) {
-        val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
-            ?: release.assets.firstOrNull()
+        val apkAsset = release.assets.firstOrNull {
+            it.name.endsWith(".apk", ignoreCase = true)
+        } ?: release.assets.firstOrNull { it.contentType.contains("android.package", ignoreCase = true) }
 
-        if (apkAsset == null) {
+        if (apkAsset == null || apkAsset.browserDownloadUrl.isBlank()) {
             _statusMessage.value = "Tidak ditemukan file APK pada rilis ${release.tagName}."
+            _downloadProgress.value = -1
             return@withContext false
         }
 
@@ -80,47 +82,63 @@ class UpdateManager(
             _downloadProgress.value = 0
 
             val response = releaseService.downloadFile(apkAsset.browserDownloadUrl)
-            if (!response.isSuccessful || response.body() == null) {
+            val body = response.body()
+            if (!response.isSuccessful || body == null) {
                 _statusMessage.value = "Gagal mengunduh file update (HTTP ${response.code()})."
                 _downloadProgress.value = -1
                 return@withContext false
             }
 
-            // Path specified in specification: rentalio/pembaruan aplikasi/apk/app-release.apk
             val baseDir = File(context.getExternalFilesDir(null), "rentalio/pembaruan aplikasi/apk")
-            if (!baseDir.exists()) {
-                baseDir.mkdirs()
+            if (!baseDir.exists() && !baseDir.mkdirs()) {
+                _statusMessage.value = "Tidak bisa membuat folder unduhan."
+                _downloadProgress.value = -1
+                return@withContext false
             }
             val destinationFile = File(baseDir, "app-release.apk")
             if (destinationFile.exists()) {
                 destinationFile.delete()
             }
 
-            val body = response.body()!!
             val totalBytes = body.contentLength()
             var downloadedBytes = 0L
+            var lastProgress = -1
 
-            val inputStream: InputStream = body.byteStream()
-            val outputStream = FileOutputStream(destinationFile)
-
-            val buffer = ByteArray(8 * 1024)
-            var bytesRead: Int
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                outputStream.write(buffer, 0, bytesRead)
-                downloadedBytes += bytesRead
-                if (totalBytes > 0) {
-                    val progress = ((downloadedBytes * 100) / totalBytes).toInt()
-                    _downloadProgress.value = progress
+            body.byteStream().use { inputStream ->
+                FileOutputStream(destinationFile).use { outputStream ->
+                    val buffer = ByteArray(16 * 1024)
+                    var bytesRead: Int
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                        downloadedBytes += bytesRead
+                        if (totalBytes > 0) {
+                            val progress = ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
+                            if (progress != lastProgress) {
+                                lastProgress = progress
+                                _downloadProgress.value = progress
+                            }
+                        }
+                    }
+                    outputStream.flush()
                 }
             }
 
-            outputStream.flush()
-            outputStream.close()
-            inputStream.close()
+            if (!destinationFile.exists() || destinationFile.length() <= 0L) {
+                _statusMessage.value = "File APK kosong. Unduhan dibatalkan."
+                _downloadProgress.value = -1
+                return@withContext false
+            }
+
+            val archiveInfo = context.packageManager.getPackageArchiveInfo(destinationFile.absolutePath, 0)
+            if (archiveInfo == null) {
+                _statusMessage.value = "File yang diunduh bukan APK valid."
+                _downloadProgress.value = -1
+                destinationFile.delete()
+                return@withContext false
+            }
 
             _downloadProgress.value = 100
             _statusMessage.value = "Unduhan selesai. Memulai instalasi..."
-
             launchInstallIntent(destinationFile)
             true
         } catch (e: Exception) {
@@ -131,13 +149,36 @@ class UpdateManager(
         }
     }
 
-    private fun launchInstallIntent(apkFile: File) {
+    private fun canInstallPackages(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    private fun openUnknownSourcesSettings() {
         try {
-            val contentUri: Uri = FileProvider.getUriForFile(
-                context,
-                "dev.andikune.rentalio.fileprovider",
-                apkFile
-            )
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:${context.packageName}")
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            _statusMessage.value = "Izinkan \"Pasang aplikasi tidak dikenal\" lalu tekan Update lagi."
+        } catch (e: Exception) {
+            Log.w("UpdateManager", "Tidak bisa membuka pengaturan sumber tidak dikenal: ${e.message}")
+            _statusMessage.value = "Aktifkan izin pemasangan APK di Pengaturan > Keamanan."
+        }
+    }
+
+    private fun launchInstallIntent(apkFile: File) {
+        if (!canInstallPackages()) {
+            openUnknownSourcesSettings()
+            return
+        }
+        try {
+            val authority = "${context.packageName}.fileprovider"
+            val contentUri: Uri = FileProvider.getUriForFile(context, authority, apkFile)
 
             val installIntent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(contentUri, "application/vnd.android.package-archive")

@@ -17,12 +17,33 @@ interface LocalRentalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(state: LocalRentalState)
 
-    @Query("UPDATE rental_state SET remainingTimeSeconds = :seconds, isExpired = :isExpired, lastUpdatedTimestamp = :timestamp WHERE id = 1")
-    suspend fun updateTimer(seconds: Long, isExpired: Boolean, timestamp: Long = System.currentTimeMillis())
+    @Query(
+        "UPDATE rental_state SET " +
+            "remainingTimeSeconds = :remaining, " +
+            "isExpired = :expired, " +
+            "isRunning = :running, " +
+            "isUnlimited = :unlimited, " +
+            "timerEndEpochMs = :endEpochMs, " +
+            "unlimitedStartEpochMs = :unlimitedStartEpochMs, " +
+            "lastUpdatedTimestamp = :timestamp " +
+            "WHERE id = 1"
+    )
+    suspend fun updateSession(
+        remaining: Long,
+        expired: Boolean,
+        running: Boolean,
+        unlimited: Boolean,
+        endEpochMs: Long,
+        unlimitedStartEpochMs: Long,
+        timestamp: Long
+    )
 
     @Query("UPDATE rental_state SET localAdminPinHash = :pinHash WHERE id = 1")
     suspend fun updatePin(pinHash: String)
 
     @Query("UPDATE rental_state SET whitelistPackages = :packages WHERE id = 1")
     suspend fun updateWhitelist(packages: String)
+
+    @Query("UPDATE rental_state SET isSuspended = :suspended WHERE id = 1")
+    suspend fun updateSuspended(suspended: Boolean)
 }

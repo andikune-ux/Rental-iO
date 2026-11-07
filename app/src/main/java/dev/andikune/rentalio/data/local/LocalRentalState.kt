@@ -6,10 +6,14 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "rental_state")
 data class LocalRentalState(
     @PrimaryKey val id: Int = 1,
-    val remainingTimeSeconds: Long = 3600L,
+    val remainingTimeSeconds: Long = 0L,
     val isExpired: Boolean = false,
-    val localAdminPinHash: String = "123456",
-    val whitelistPackages: String = "com.dts.freefireth,com.mobile.legends,com.tencent.ig,com.miHoYo.GenshinImpact,com.activision.callofduty.shooter",
+    val isRunning: Boolean = false,
+    val isUnlimited: Boolean = false,
+    val timerEndEpochMs: Long = 0L,
+    val unlimitedStartEpochMs: Long = 0L,
+    val localAdminPinHash: String = "",
+    val whitelistPackages: String = "",
     val isSuspended: Boolean = false,
     val adminId: String = "admin_01",
     val ownerId: String = "owner_root",

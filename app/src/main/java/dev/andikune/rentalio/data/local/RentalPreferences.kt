@@ -109,6 +109,27 @@ class RentalPreferences(context: Context) {
         _settingsFlow.value = loadSettings()
     }
 
+    fun hasAskedOverlayPermission(): Boolean = prefs.getBoolean(KEY_OVERLAY_ASKED, false)
+
+    fun markOverlayPermissionAsked() {
+        prefs.edit().putBoolean(KEY_OVERLAY_ASKED, true).apply()
+    }
+
+    fun getSkippedUpdateVersion(): String = prefs.getString(KEY_SKIPPED_UPDATE, "").orEmpty()
+
+    fun saveSkippedUpdateVersion(version: String) {
+        prefs.edit().putString(KEY_SKIPPED_UPDATE, version).apply()
+    }
+
+    fun shouldCheckForUpdates(now: Long = System.currentTimeMillis()): Boolean {
+        val last = prefs.getLong(KEY_LAST_UPDATE_CHECK, 0L)
+        return now - last >= UPDATE_CHECK_INTERVAL_MS
+    }
+
+    fun markUpdateChecked(now: Long = System.currentTimeMillis()) {
+        prefs.edit().putLong(KEY_LAST_UPDATE_CHECK, now).apply()
+    }
+
     companion object {
         private const val KEY_RENTAL_NAME = "rental_name"
         private const val KEY_PHONE_LABEL = "phone_label"
@@ -123,6 +144,10 @@ class RentalPreferences(context: Context) {
         private const val KEY_BANNER_3 = "banner_3"
         private const val KEY_WHITELIST = "whitelist_packages"
         private const val KEY_KIOSK_ACTIVE = "kiosk_active"
+        private const val KEY_OVERLAY_ASKED = "overlay_permission_asked"
+        private const val KEY_SKIPPED_UPDATE = "skipped_update_version"
+        private const val KEY_LAST_UPDATE_CHECK = "last_update_check"
+        private const val UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
 
         val defaultWhitelist = setOf(
             "com.dts.freefireth",

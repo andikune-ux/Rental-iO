@@ -77,6 +77,34 @@ adb shell dpm remove-active-admin dev.andikune.rentalio/.receiver.AdminReceiver
 
 ---
 
+## 🏠 Menjadikan Rental.iO sebagai Home Launcher Default
+
+Rental.iO sekarang otomatis meminta peran **Home Launcher utama**:
+
+- **Device Owner aktif** → peran Home dipasang **permanen tanpa dialog** memakai
+  `DevicePolicyManager.addPersistentPreferredActivity`. Tombol Home selalu
+  kembali ke kiosk Rental.iO.
+- **Bukan Device Owner** → aplikasi menampilkan dialog sistem **"Home app"**
+  (`RoleManager.ROLE_HOME` di Android 10+). Pengguna cukup memilih
+  **Rental.iO → Always / Selalu**.
+
+Konfigurasi manual jika dialog tidak muncul:
+
+1. Buka **Settings → Apps → Default apps → Home app**.
+2. Pilih **Rental.iO**.
+3. Tekan tombol Home untuk memastikan kiosk langsung terbuka.
+
+Alternatif lewat ADB (Android 10+), tanpa dialog:
+
+```bash
+adb shell cmd package set-home-activity dev.andikune.rentalio/.ui.MainActivity
+```
+
+Untuk hasil terbaik pada perangkat rental, tetap daftarkan sebagai **Device
+Owner** (lihat panduan ADB di atas) agar peran Home tidak bisa diubah penyewa.
+
+---
+
 ## 🚀 CI/CD GitHub Actions & Signing Keystore
 
 Pipeline di `.github/workflows/android_release.yml` otomatis membangun APK rilis ketika Anda membuat tag `v*` (contoh: `git tag v1.0.0 && git push origin v1.0.0`):
@@ -93,6 +121,24 @@ Pipeline di `.github/workflows/android_release.yml` otomatis membangun APK rilis
 
 ## 🛡️ Hak Akses & Keamanan
 
-- **Admin Master PIN Default**: `8899` (dapat diubah melalui menu Settings Admin).
-- **Anti-Force Close**: KioskForegroundService memanfaatkan `START_STICKY` dan Notification Channel prioritas tinggi.
+- **Admin Master PIN Default**: `123456` (dapat diubah melalui menu Admin → Keamanan).
+- **PIN tersimpan sebagai SHA-256** di Room Database. PIN lama yang masih
+  plaintext tetap diterima saat upgrade, lalu otomatis dimigrasikan ketika
+  admin mengganti PIN.
+- **Anti-Force Close**: KioskForegroundService memanfaatkan `START_STICKY`, timer
+  berbasis epoch (tahan process-death & reboot), dan Notification Channel
+  prioritas tinggi dengan full-screen intent saat waktu habis.
 - **Orientation Lock**: Terkunci permanen pada mode horizontal (Landscape) untuk kenyamanan gaming dock.
+
+---
+
+## ⚠️ Batasan Android yang Perlu Diketahui
+
+- Android **tidak mengizinkan aplikasi biasa** mengganti Home Launcher secara
+  senyap. Dialog sistem (RoleManager / chooser Home) adalah batas maksimal untuk
+  aplikasi non-Device Owner. Untuk pengalaman kiosk penuh, daftarkan perangkat
+  sebagai **Device Owner**.
+- Full-screen intent saat waktu habis dapat dibatasi pada Android 14+ jika izin
+  `USE_FULL_SCREEN_INTENT` dicabut pengguna. Notifikasi alarm tetap muncul.
+- Mode Unlimited menghitung biaya berjalan Rp 100/menit dan dihentikan lewat
+  tombol **Selesaikan Sewa Unit** (memerlukan PIN Admin).

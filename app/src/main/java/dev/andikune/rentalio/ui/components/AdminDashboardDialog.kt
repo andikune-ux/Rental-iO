@@ -1,6 +1,9 @@
 package dev.andikune.rentalio.ui.components
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,6 +45,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
@@ -52,6 +56,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -63,6 +68,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -76,6 +83,7 @@ import dev.andikune.rentalio.data.local.RentalPreferences
 import dev.andikune.rentalio.data.model.WhitelistApp
 import dev.andikune.rentalio.ui.theme.GamingColors
 import dev.andikune.rentalio.utils.SecurityHelper
+import kotlinx.coroutines.delay
 
 @Composable
 fun AdminDashboardDialog(
@@ -83,20 +91,55 @@ fun AdminDashboardDialog(
     allInstalledApps: List<WhitelistApp>,
     isDeviceOwner: Boolean,
     isLockTaskActive: Boolean,
+    isDefaultLauncher: Boolean,
+    isOverlayGranted: Boolean,
+    isSessionRunning: Boolean,
+    initiallyAuthenticated: Boolean = false,
     onSaveDuration: (hours: Int, minutes: Int, seconds: Int, bonusMinutes: Int, isUnlimited: Boolean) -> Unit,
     onSaveIdentity: (rentalName: String, phoneLabel: String, banner1: String, banner2: String, banner3: String, autoStart: Boolean) -> Unit,
     onSaveWhitelist: (Set<String>) -> Unit,
     onAddTime: (Long) -> Unit,
     onSetTime: (Long) -> Unit,
+    onEndSession: () -> Unit,
     onToggleLockTask: (Boolean) -> Unit,
     onChangePin: (String) -> Unit,
     onCheckUpdate: () -> Unit,
     onVerifyPin: (String) -> Boolean,
+    onRequestDefaultLauncher: () -> Unit,
+    onRequestOverlay: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var isAuthenticated by remember { mutableStateOf(false) }
+    var isAuthenticated by remember { mutableStateOf(initiallyAuthenticated) }
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
+    var failedPinAttempts by remember { mutableIntStateOf(0) }
+    var pinLockoutSeconds by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(pinLockoutSeconds) {
+        if (pinLockoutSeconds > 0) {
+            delay(1000)
+            pinLockoutSeconds -= 1
+        }
+    }
+
+    val submitPin: (String) -> Unit = { enteredPin ->
+        if (pinLockoutSeconds > 0) {
+            pinError = true
+        } else if (onVerifyPin(enteredPin)) {
+            isAuthenticated = true
+            pinError = false
+            failedPinAttempts = 0
+            pinInput = ""
+        } else {
+            failedPinAttempts += 1
+            pinError = true
+            pinInput = ""
+            if (failedPinAttempts >= 5) {
+                failedPinAttempts = 0
+                pinLockoutSeconds = 30
+            }
+        }
+    }
 
     var selectedTab by remember { mutableIntStateOf(0) }
 
@@ -118,6 +161,30 @@ fun AdminDashboardDialog(
 
     var newPinInput by remember { mutableStateOf("") }
     var newPinMessage by remember { mutableStateOf<String?>(null) }
+    var newPinIsError by remember { mutableStateOf(false) }
+
+    var durationError by remember { mutableStateOf<String?>(null) }
+    var whitelistSearch by remember { mutableStateOf("") }
+    var confirmEndSession by remember { mutableStateOf(false) }
+
+    LaunchedEffect(confirmEndSession) {
+        if (confirmEndSession) {
+            delay(4000)
+            confirmEndSession = false
+        }
+    }
+
+    val filteredApps = remember(allInstalledApps, whitelistSearch) {
+        val query = whitelistSearch.trim()
+        if (query.isEmpty()) {
+            allInstalledApps
+        } else {
+            allInstalledApps.filter {
+                it.label.contains(query, ignoreCase = true) ||
+                    it.packageName.contains(query, ignoreCase = true)
+            }
+        }
+    }
 
     val estimatedPrice by remember {
         derivedStateOf {
@@ -237,29 +304,16 @@ fun AdminDashboardDialog(
                                                     .clip(RoundedCornerShape(10.dp))
                                                     .background(if (k == "OK") GamingColors.NeonCyan else Color(0xFF1E293B))
                                                     .clickable {
+                                                        if (pinLockoutSeconds > 0 && k != "C") return@clickable
                                                         when (k) {
                                                             "C" -> if (pinInput.isNotEmpty()) pinInput = pinInput.dropLast(1)
-                                                            "OK" -> {
-                                                                if (onVerifyPin(pinInput)) {
-                                                                    isAuthenticated = true
-                                                                    pinError = false
-                                                                } else {
-                                                                    pinError = true
-                                                                    pinInput = ""
-                                                                }
-                                                            }
+                                                            "OK" -> submitPin(pinInput)
                                                             else -> {
                                                                 if (pinInput.length < 6) {
                                                                     val next = pinInput + k
                                                                     pinInput = next
                                                                     if (next.length == 6) {
-                                                                        if (onVerifyPin(next)) {
-                                                                            isAuthenticated = true
-                                                                            pinError = false
-                                                                        } else {
-                                                                            pinError = true
-                                                                            pinInput = ""
-                                                                        }
+                                                                        submitPin(next)
                                                                     }
                                                                 }
                                                             }
@@ -278,9 +332,17 @@ fun AdminDashboardDialog(
                                 }
                             }
 
-                            if (pinError) {
+                            if (pinLockoutSeconds > 0) {
                                 Text(
-                                    text = "PIN Salah!",
+                                    text = "Terlalu banyak percobaan. Tunggu ${pinLockoutSeconds} detik.",
+                                    color = GamingColors.NeonRed,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 12.dp)
+                                )
+                            } else if (pinError) {
+                                Text(
+                                    text = "PIN Salah! Sisa percobaan sebelum terkunci: ${5 - failedPinAttempts}",
                                     color = GamingColors.NeonRed,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
@@ -361,7 +423,10 @@ fun AdminDashboardDialog(
                                     }
                                     Switch(
                                         checked = isUnlimitedInput,
-                                        onCheckedChange = { isUnlimitedInput = it },
+                                        onCheckedChange = {
+                                            isUnlimitedInput = it
+                                            durationError = null
+                                        },
                                         colors = SwitchDefaults.colors(
                                             checkedThumbColor = GamingColors.NeonCyan,
                                             checkedTrackColor = GamingColors.NeonCyan.copy(alpha = 0.3f)
@@ -449,12 +514,17 @@ fun AdminDashboardDialog(
 
                                 Button(
                                     onClick = {
-                                        // PERBAIKAN MUTLAK BUG TIMER
                                         val h = hoursInput.toIntOrNull() ?: 0
                                         val m = minutesInput.toIntOrNull() ?: 0
                                         val s = secondsInput.toIntOrNull() ?: 0
                                         val b = bonusMinutesInput.toIntOrNull() ?: 0
-                                        onSaveDuration(h, m, s, b, isUnlimitedInput)
+                                        val totalSeconds = (h * 3600L) + (m * 60L) + s + (b * 60L)
+                                        if (!isUnlimitedInput && totalSeconds <= 0L) {
+                                            durationError = "Isi durasi lebih dari 0 detik, atau aktifkan mode Unlimited."
+                                        } else {
+                                            durationError = null
+                                            onSaveDuration(h, m, s, b, isUnlimitedInput)
+                                        }
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = GamingColors.NeonCyan, contentColor = Color.Black),
                                     shape = RoundedCornerShape(10.dp),
@@ -462,7 +532,17 @@ fun AdminDashboardDialog(
                                 ) {
                                     Text("TERAPKAN PENGATURAN DURASI", fontWeight = FontWeight.Black, fontSize = 13.sp)
                                 }
-                                
+
+                                if (durationError != null) {
+                                    Text(
+                                        text = durationError!!,
+                                        color = GamingColors.NeonRed,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(top = 6.dp)
+                                    )
+                                }
+
                                 Spacer(modifier = Modifier.height(16.dp))
                                 
                                 Text(
@@ -486,6 +566,44 @@ fun AdminDashboardDialog(
                                         ) {
                                             Text(lbl, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                         }
+                                    }
+                                }
+
+                                if (isSessionRunning) {
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    OutlinedButton(
+                                        onClick = {
+                                            if (confirmEndSession) {
+                                                confirmEndSession = false
+                                                onEndSession()
+                                            } else {
+                                                confirmEndSession = true
+                                            }
+                                        },
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (confirmEndSession) GamingColors.NeonRed else Color.Gray.copy(alpha = 0.5f)
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth().height(44.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.LockOpen,
+                                            contentDescription = null,
+                                            tint = if (confirmEndSession) GamingColors.NeonRed else Color.LightGray,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (confirmEndSession) {
+                                                "TEKAN LAGI UNTUK KONFIRMASI AKHIRI SESI"
+                                            } else {
+                                                "AKHIRI SESI SEKARANG"
+                                            },
+                                            color = if (confirmEndSession) GamingColors.NeonRed else Color.LightGray,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
@@ -614,7 +732,22 @@ fun AdminDashboardDialog(
                                         fontSize = 10.sp
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = whitelistSearch,
+                                    onValueChange = { whitelistSearch = it },
+                                    label = { Text("Cari aplikasi atau package...", fontSize = 11.sp) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = GamingColors.NeonCyan,
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
 
                                 LazyVerticalGrid(
                                     columns = GridCells.Adaptive(minSize = 100.dp), // Menyesuaikan ukuran layar
@@ -627,7 +760,21 @@ fun AdminDashboardDialog(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    items(allInstalledApps) { app ->
+                                    if (filteredApps.isEmpty()) {
+                                        item {
+                                            Text(
+                                                text = "Aplikasi tidak ditemukan.",
+                                                color = Color.Gray,
+                                                fontSize = 11.sp,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp)
+                                            )
+                                        }
+                                    }
+
+                                    items(filteredApps) { app ->
                                         val isChecked = selectedWhitelist.contains(app.packageName)
                                         
                                         Column(
@@ -656,11 +803,10 @@ fun AdminDashboardDialog(
                                                     .clip(RoundedCornerShape(12.dp))
                                                     .background(Color.Black.copy(alpha = 0.4f))
                                             ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Android,
-                                                    contentDescription = null,
+                                                AppIcon(
+                                                    packageName = app.packageName,
                                                     tint = if (isChecked) Color.White else Color.Gray,
-                                                    modifier = Modifier.size(28.dp)
+                                                    modifier = Modifier.size(38.dp)
                                                 )
                                             }
                                             Spacer(modifier = Modifier.height(8.dp))
@@ -745,9 +891,11 @@ fun AdminDashboardDialog(
                                             if (newPinInput.length == 6) {
                                                 onChangePin(newPinInput)
                                                 newPinMessage = "PIN berhasil disimpan!"
+                                                newPinIsError = false
                                                 newPinInput = ""
                                             } else {
                                                 newPinMessage = "PIN harus 6 angka."
+                                                newPinIsError = true
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = GamingColors.NeonMagenta, contentColor = Color.White),
@@ -760,7 +908,7 @@ fun AdminDashboardDialog(
                                 if (newPinMessage != null) {
                                     Text(
                                         text = newPinMessage!!,
-                                        color = GamingColors.NeonGreen,
+                                        color = if (newPinIsError) GamingColors.NeonRed else GamingColors.NeonGreen,
                                         fontSize = 11.sp,
                                         modifier = Modifier.padding(top = 6.dp)
                                     )
@@ -819,6 +967,39 @@ fun AdminDashboardDialog(
                                     }
                                 }
 
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                StatusActionRow(
+                                    title = "HOME LAUNCHER",
+                                    isActive = isDefaultLauncher,
+                                    activeText = "Aktif sebagai Home default",
+                                    inactiveText = "Belum menjadi Home default",
+                                    buttonText = if (isDefaultLauncher) "GANTI" else "JADIKAN HOME",
+                                    onClick = onRequestDefaultLauncher
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                StatusActionRow(
+                                    title = "IZIN OVERLAY",
+                                    isActive = isOverlayGranted,
+                                    activeText = "Overlay alarm & countdown aktif",
+                                    inactiveText = "Overlay belum diizinkan",
+                                    buttonText = if (isOverlayGranted) "PENGATURAN" else "IZINKAN",
+                                    onClick = onRequestOverlay
+                                )
+
+                                if (!isDeviceOwner) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = "Untuk kunci senyap tanpa dialog, jadikan aplikasi ini Device Owner lewat ADB:\n" +
+                                            "adb shell dpm set-device-owner dev.andikune.rentalio/.receiver.AdminReceiver",
+                                        color = GamingColors.TextSecondary,
+                                        fontSize = 10.sp,
+                                        lineHeight = 14.sp
+                                    )
+                                }
+
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 Button(
@@ -838,5 +1019,85 @@ fun AdminDashboardDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatusActionRow(
+    title: String,
+    isActive: Boolean,
+    activeText: String,
+    inactiveText: String,
+    buttonText: String,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF152238))
+            .padding(12.dp)
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (isActive) activeText else inactiveText,
+                color = if (isActive) GamingColors.NeonGreen else GamingColors.NeonAmber,
+                fontSize = 10.sp
+            )
+        }
+        Button(
+            onClick = onClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isActive) Color(0xFF1E293B) else GamingColors.NeonCyan,
+                contentColor = if (isActive) Color.White else Color.Black
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(buttonText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun AppIcon(
+    packageName: String,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val bitmap = remember(packageName) {
+        try {
+            val drawable = context.packageManager.getApplicationIcon(packageName)
+            val size = 96
+            val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+            bmp
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = packageName,
+            modifier = modifier
+        )
+    } else {
+        Icon(
+            imageVector = Icons.Default.Android,
+            contentDescription = packageName,
+            tint = tint,
+            modifier = modifier
+        )
     }
 }

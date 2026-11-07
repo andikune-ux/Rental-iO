@@ -27,53 +27,61 @@ class GyroscopeHelper(context: Context, private val maxOffsetPx: Float = 50f) : 
 
     private var currentX = 0f
     private var currentY = 0f
-    private val filterFactor = 0.10f // Smoothing low-pass filter
-    private var isUsingGyro = false
+    private val filterFactor = 0.12f
+    private var isListening = false
+    private var lastEventNanos = 0L
 
     fun startListening() {
-        if (gyroSensor != null) {
-            sensorManager.registerListener(this, gyroSensor, SensorManager.SENSOR_DELAY_GAME)
-            isUsingGyro = true
-        } else if (accelSensor != null) {
-            sensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_GAME)
-            isUsingGyro = false
-        }
+        if (isListening) return
+        // Accelerometer lebih stabil untuk efek parallax berbasis kemiringan.
+        val sensor = accelSensor ?: gyroSensor ?: return
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME)
+        isListening = true
+        lastEventNanos = 0L
     }
 
     fun stopListening() {
+        if (!isListening) return
         sensorManager.unregisterListener(this)
+        isListening = false
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null) return
 
-        if (event.sensor.type == Sensor.TYPE_GYROSCOPE) {
-            // Gyroscope angular speed (rad/s)
-            // In Landscape orientation:
-            // event.values[0] is X axis (pitch), event.values[1] is Y axis (roll), event.values[2] is Z axis (yaw)
-            val gyroX = event.values[0]
-            val gyroY = event.values[1]
+        val now = event.timestamp
+        val deltaSeconds = if (lastEventNanos == 0L) {
+            0f
+        } else {
+            ((now - lastEventNanos).coerceAtLeast(0L) / 1_000_000_000f).coerceAtMost(0.1f)
+        }
+        lastEventNanos = now
 
-            // Integrate and translate opposite to tilt direction for parallax depth
-            val targetX = -gyroY * (maxOffsetPx * 1.2f)
-            val targetY = -gyroX * (maxOffsetPx * 1.2f)
+        when (event.sensor.type) {
+            Sensor.TYPE_ACCELEROMETER -> {
+                // Arah gravitasi: x = kemiringan kiri/kanan, y = depan/belakang.
+                val tiltX = (event.values[1] / SensorManager.GRAVITY_EARTH).coerceIn(-1f, 1f)
+                val tiltY = (event.values[0] / SensorManager.GRAVITY_EARTH).coerceIn(-1f, 1f)
 
-            currentX = lerp(currentX, targetX, filterFactor)
-            currentY = lerp(currentY, targetY, filterFactor)
-        } else if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-            // Accelerometer gravity tilt
-            // In landscape: values[1] correlates with lateral tilt, values[0] with vertical
-            val tiltX = event.values[1] / 9.8f
-            val tiltY = (event.values[0] - 5f) / 9.8f
+                val targetX = -tiltX * maxOffsetPx
+                val targetY = tiltY * maxOffsetPx
 
-            val targetX = -tiltX * maxOffsetPx
-            val targetY = tiltY * maxOffsetPx
+                currentX = lerp(currentX, targetX, filterFactor)
+                currentY = lerp(currentY, targetY, filterFactor)
+            }
 
-            currentX = lerp(currentX, targetX, filterFactor)
-            currentY = lerp(currentY, targetY, filterFactor)
+            Sensor.TYPE_GYROSCOPE -> {
+                // Fallback perangkat tanpa accelerometer: integrasikan kecepatan
+                // sudut dengan decay agar tidak melonjak saat berhenti bergerak.
+                val gyroX = event.values[0]
+                val gyroY = event.values[1]
+                currentX += -gyroY * deltaSeconds * maxOffsetPx * 2.5f
+                currentY += -gyroX * deltaSeconds * maxOffsetPx * 2.5f
+                currentX *= 0.98f
+                currentY *= 0.98f
+            }
         }
 
-        // Clamp to max offset limits
         val clampedX = max(-maxOffsetPx, min(maxOffsetPx, currentX))
         val clampedY = max(-maxOffsetPx, min(maxOffsetPx, currentY))
 

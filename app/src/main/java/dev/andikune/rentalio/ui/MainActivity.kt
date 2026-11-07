@@ -1,5 +1,6 @@
 package dev.andikune.rentalio.ui
 
+import android.Manifest
 import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
@@ -9,7 +10,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.os.Build
 import android.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import android.graphics.drawable.BitmapDrawable
@@ -56,6 +59,7 @@ import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Security
@@ -102,6 +106,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSnapHelper
 import androidx.recyclerview.widget.RecyclerView
 import dev.andikune.rentalio.R
+import dev.andikune.rentalio.data.local.RentalPreferences
 import dev.andikune.rentalio.data.model.RentalUiState
 import dev.andikune.rentalio.service.KioskForegroundService
 import dev.andikune.rentalio.ui.components.AdminDashboardDialog
@@ -114,17 +119,23 @@ import dev.andikune.rentalio.ui.theme.GlassColors
 import dev.andikune.rentalio.ui.theme.RentalIOGamingTheme
 import dev.andikune.rentalio.ui.theme.liquidGlass
 import dev.andikune.rentalio.utils.CrashHandler
+import dev.andikune.rentalio.utils.DeviceOwnerManager
+import dev.andikune.rentalio.utils.HomeLauncherManager
 import dev.andikune.rentalio.utils.SecurityHelper
 import dev.andikune.rentalio.utils.SystemOverlayHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.pow
 
 class MainActivity : ComponentActivity() {
+
+    private companion object {
+        const val REQUEST_CODE_NOTIFICATIONS = 4301
+    }
 
     // UBAH MENJADI LATEINIT AGAR TIDAK CRASH SAAT INISIALISASI
     private lateinit var viewModel: MainViewModel
@@ -144,6 +155,8 @@ class MainActivity : ComponentActivity() {
     private var isCarouselOpen: Boolean = false
     private var hasInitializedCarousel: Boolean = false
     private var hasNotifiedNinetyPercent: Boolean = false
+    private var hasRequestedDefaultHome: Boolean = false
+    private var hasEnforcedPersistentHome: Boolean = false
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -214,7 +227,7 @@ class MainActivity : ComponentActivity() {
             rvAppCarousel = findViewById(R.id.rv_app_carousel)
             val composeKioskUi = findViewById<ComposeView>(R.id.compose_kiosk_ui)
 
-            SystemOverlayHelper.requestOverlayPermission(this)
+            requestRuntimePermissionsIfNeeded()
 
             gyroscopeHelper = GyroscopeHelper(this, maxOffsetPx = 45f)
             lifecycleScope.launch {
@@ -241,6 +254,24 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             // JIKA UI CRASH, TAMPILKAN ALERT DIALOG NATIVE
             showNativeCrashDialog(e.stackTraceToString())
+        }
+    }
+
+    private fun requestRuntimePermissionsIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_CODE_NOTIFICATIONS
+            )
+        }
+
+        val prefs = RentalPreferences(this)
+        if (!prefs.hasAskedOverlayPermission() && !SystemOverlayHelper.canDrawOverlays(this)) {
+            prefs.markOverlayPermissionAsked()
+            SystemOverlayHelper.requestOverlayPermission(this)
         }
     }
 
@@ -392,21 +423,32 @@ class MainActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     val apps = state.whitelistApps
-                    if (apps.isNotEmpty()) {
-                        val currentItems = carouselAdapter.getItems()
-                        if (currentItems != apps) {
-                            val currentHeight = rvAppCarousel.height
-                            val itemHeight = if (currentHeight > 0) currentHeight / 5 else 0
-                            carouselAdapter.setItems(apps, itemHeight)
+                    if (carouselAdapter.getItems() != apps) {
+                        val currentHeight = rvAppCarousel.height
+                        val itemHeight = if (currentHeight > 0) currentHeight / 5 else 0
+                        carouselAdapter.setItems(apps, itemHeight)
+                        lastSnappedPosition = -1
+                        hasInitializedCarousel = false
 
-                            if (!hasInitializedCarousel && currentHeight > 0) {
-                                hasInitializedCarousel = true
-                                val middleVirtual = carouselAdapter.getInitialCenterPosition()
-                                rvAppCarousel.scrollToPosition(middleVirtual)
-                                rvAppCarousel.post {
-                                    applyCShapeCurve()
-                                    checkCenterSnappedItem()
+                        if (apps.isNotEmpty()) {
+                            rvAppCarousel.post {
+                                val height = rvAppCarousel.height
+                                if (height > 0) {
+                                    carouselAdapter.setItemHeight(height / 5)
+                                    hasInitializedCarousel = true
+                                    rvAppCarousel.scrollToPosition(
+                                        carouselAdapter.getInitialCenterPosition()
+                                    )
+                                    rvAppCarousel.post {
+                                        applyCShapeCurve()
+                                        checkCenterSnappedItem()
+                                    }
                                 }
+                            }
+                        } else {
+                            rvAppCarousel.post {
+                                applyCShapeCurve()
+                                updateBackgroundRadialGlow(GlassColors.AccentGlow.toArgb())
                             }
                         }
                     }
@@ -538,6 +580,7 @@ class MainActivity : ComponentActivity() {
             RentalIOGamingTheme {
                 val state by viewModel.uiState.collectAsState()
                 val allApps by viewModel.allDeviceApps.collectAsState()
+                val currentSettings by viewModel.preferences.settingsFlow.collectAsState()
 
                 BackHandler(enabled = true) {
                     if (state.showAdminDialog) {
@@ -554,7 +597,7 @@ class MainActivity : ComponentActivity() {
                 RightPanelAndOverlays(
                     state = state,
                     allApps = allApps,
-                    currentSettings = viewModel.preferences.getSettings(),
+                    currentSettings = currentSettings,
                     onLaunchApp = { viewModel.launchSelectedApp(this@MainActivity) },
                     onOpenAdmin = { viewModel.openAdminDialog() },
                     onCheckUpdate = { viewModel.checkForUpdates(silent = false) },
@@ -574,8 +617,16 @@ class MainActivity : ComponentActivity() {
                     onUnlockWithPin = { viewModel.unlockWithPin(it) },
                     onUpdateNow = { viewModel.downloadAndInstallUpdate() },
                     onLaterUpdate = { viewModel.dismissUpdateDialog() },
+                    onSkipUpdate = { viewModel.skipUpdateVersion() },
                     onFinishUnlimited = { viewModel.finishUnlimitedSession() },
-                    onDismissSummary = { viewModel.dismissUnlimitedSummary() }
+                    onDismissSummary = { viewModel.dismissUnlimitedSummary() },
+                    onSetDefaultLauncher = {
+                        HomeLauncherManager.requestDefaultHome(this@MainActivity)
+                    },
+                    onRequestOverlay = {
+                        SystemOverlayHelper.requestOverlayPermission(this@MainActivity)
+                    },
+                    onEndSession = { viewModel.endRentalSession() }
                 )
             }
         }
@@ -587,10 +638,35 @@ class MainActivity : ComponentActivity() {
         if (::viewModel.isInitialized) {
             gyroscopeHelper.startListening()
             viewModel.checkDeviceOwnerStatus()
+            viewModel.maybeAutoStartKiosk(this)
+            ensureDefaultHomeLauncher()
             rvAppCarousel.post {
                 applyCShapeCurve()
             }
         }
+    }
+
+    /**
+     * Pastikan Rental.iO menjadi Home Launcher utama.
+     * - Device Owner: dipasang permanen tanpa dialog.
+     * - Non Device Owner: dialog sistem "Home app" sekali per sesi.
+     */
+    private fun ensureDefaultHomeLauncher() {
+        // Device Owner: paksa peran Home permanen agar tidak bisa diganti penyewa.
+        val deviceOwnerManager = DeviceOwnerManager(this)
+        if (deviceOwnerManager.isDeviceOwner()) {
+            if (!hasEnforcedPersistentHome) {
+                hasEnforcedPersistentHome = true
+                deviceOwnerManager.setPersistentHome()
+            }
+            return
+        }
+
+        if (hasRequestedDefaultHome) return
+        if (HomeLauncherManager.isDefaultHome(this)) return
+
+        hasRequestedDefaultHome = true
+        HomeLauncherManager.requestDefaultHome(this)
     }
 
     override fun onPause() {
@@ -676,18 +752,18 @@ fun CustomStatusBar(
 
 @Composable
 fun RealTimeClockWidget(modifier: Modifier = Modifier) {
-    var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
+    var currentTime by remember { mutableStateOf(Date()) }
 
     LaunchedEffect(Unit) {
         while (true) {
-            currentTime = LocalDateTime.now()
+            currentTime = Date()
             delay(1000)
         }
     }
 
     val locale = remember { Locale.forLanguageTag("id-ID") }
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d MMM", locale) }
-    val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm:ss", locale) }
+    val dateFormatter = remember { SimpleDateFormat("EEEE, d MMM", locale) }
+    val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", locale) }
 
     Column(
         horizontalAlignment = Alignment.End,
@@ -695,7 +771,7 @@ fun RealTimeClockWidget(modifier: Modifier = Modifier) {
         modifier = modifier
     ) {
         Text(
-            text = currentTime.format(dateFormatter),
+            text = dateFormatter.format(currentTime),
             color = GlassColors.TextSecondary,
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
@@ -703,7 +779,7 @@ fun RealTimeClockWidget(modifier: Modifier = Modifier) {
             softWrap = false
         )
         Text(
-            text = currentTime.format(timeFormatter),
+            text = timeFormatter.format(currentTime),
             color = GlassColors.AccentGlow,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
@@ -735,8 +811,12 @@ fun RightPanelAndOverlays(
     onUnlockWithPin: (String) -> Unit,
     onUpdateNow: () -> Unit,
     onLaterUpdate: () -> Unit,
+    onSkipUpdate: () -> Unit,
     onFinishUnlimited: () -> Unit,
-    onDismissSummary: () -> Unit
+    onDismissSummary: () -> Unit,
+    onSetDefaultLauncher: () -> Unit,
+    onRequestOverlay: () -> Unit,
+    onEndSession: () -> Unit
 ) {
     var showPinDialogForFinishSession by remember { mutableStateOf(false) }
     var finishPinInput by remember { mutableStateOf("") }
@@ -808,6 +888,33 @@ fun RightPanelAndOverlays(
                         Text(
                             text = if (state.isDeviceOwnerActive) "KIOSK ON" else "STANDBY",
                             color = if (state.isDeviceOwnerActive) GlassColors.AccentGreen else GlassColors.AccentAmber,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .liquidGlass(cornerRadius = 8.dp, isSelected = state.isDefaultLauncher)
+                        .clickable { onSetDefaultLauncher() }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Home Launcher",
+                            tint = if (state.isDefaultLauncher) GlassColors.AccentGreen else GlassColors.AccentAmber,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (state.isDefaultLauncher) "HOME ✓" else "SET HOME",
+                            color = if (state.isDefaultLauncher) GlassColors.AccentGreen else GlassColors.AccentAmber,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -889,31 +996,45 @@ fun RightPanelAndOverlays(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = onLaunchApp
+                        onClick = { if (activeApp != null) onLaunchApp() }
                     )
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(58.dp)) {
                         Icon(
-                            imageVector = Icons.Default.Gamepad,
+                            imageVector = if (activeApp != null) Icons.Default.Gamepad else Icons.Default.AdminPanelSettings,
                             contentDescription = activeApp?.label ?: "Game",
-                            tint = GlassColors.AccentGlow,
+                            tint = if (activeApp != null) GlassColors.AccentGlow else GlassColors.AccentAmber,
                             modifier = Modifier.size(48.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = activeApp?.label ?: "Pilih Game",
+                        text = activeApp?.label ?: "Belum Ada Aplikasi",
                         color = GlassColors.TextPrimary,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Sentuh untuk meluncurkan game",
+                        text = if (activeApp != null) {
+                            "Sentuh untuk meluncurkan game"
+                        } else {
+                            "Buka Admin → Whitelist untuk menambahkan game"
+                        },
                         color = GlassColors.TextSecondary,
-                        fontSize = 11.sp
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center
                     )
+                    if (activeApp != null && !state.isSessionRunning) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Sesi sewa belum aktif — hubungi Admin",
+                            color = GlassColors.AccentAmber,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
@@ -927,6 +1048,7 @@ fun RightPanelAndOverlays(
                     remainingSeconds = state.remainingSeconds,
                     isExpired = state.isExpired,
                     isUnlimitedMode = state.isUnlimitedMode,
+                    isSessionRunning = state.isSessionRunning,
                     unlimitedElapsedSeconds = state.unlimitedElapsedSeconds,
                     packageHours = state.packageHours,
                     packageMinutes = state.packageMinutes,
@@ -977,7 +1099,7 @@ fun RightPanelAndOverlays(
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "PERINGATAN SUHU TINGGI (>45°C)!",
+                        text = "PERINGATAN SUHU TINGGI (>48°C)!",
                         color = Color.Yellow,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Black,
@@ -986,7 +1108,7 @@ fun RightPanelAndOverlays(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "CABUT CHARGER SEKARANG DEMI KEAMANAN PERANGKAT!",
+                        text = "ISTIRAHATKAN PERANGKAT / CABUT CHARGER DEMI KEAMANAN!",
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
@@ -1256,15 +1378,22 @@ fun RightPanelAndOverlays(
                 allInstalledApps = allApps,
                 isDeviceOwner = state.isDeviceOwnerActive,
                 isLockTaskActive = state.isLockTaskModeActive,
+                isDefaultLauncher = state.isDefaultLauncher,
+                isOverlayGranted = state.isOverlayGranted,
+                isSessionRunning = state.isSessionRunning,
+                initiallyAuthenticated = state.isAdminUnlocked,
                 onSaveDuration = onSaveDuration,
                 onSaveIdentity = onSaveIdentity,
                 onSaveWhitelist = onSaveWhitelist,
                 onAddTime = onAddTime,
                 onSetTime = onSetTime,
+                onEndSession = onEndSession,
                 onToggleLockTask = onToggleLockTask,
                 onChangePin = onChangePin,
                 onCheckUpdate = onCheckUpdate,
                 onVerifyPin = onVerifyPin,
+                onRequestDefaultLauncher = onSetDefaultLauncher,
+                onRequestOverlay = onRequestOverlay,
                 onDismiss = onDismissAdmin
             )
         }
@@ -1275,7 +1404,7 @@ fun RightPanelAndOverlays(
                 downloadProgress = if (state.downloadProgress >= 0) state.downloadProgress / 100f else -1f,
                 onUpdateClick = onUpdateNow,
                 onLaterClick = onLaterUpdate,
-                onSkipClick = onLaterUpdate
+                onSkipClick = onSkipUpdate
             )
         }
     }
