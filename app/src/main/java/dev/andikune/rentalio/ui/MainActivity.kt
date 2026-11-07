@@ -607,6 +607,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         applyFullscreenImmersive()
+        SystemOverlayHelper.hideFloatingHomeButton()
         if (::viewModel.isInitialized) {
             gyroscopeHelper.startListening()
             viewModel.checkDeviceOwnerStatus()

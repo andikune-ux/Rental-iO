@@ -204,6 +204,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (launchIntent != null) {
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(launchIntent)
+            dev.andikune.rentalio.utils.SystemOverlayHelper.showFloatingHomeButton(context)
         } else {
             // FIX BUG KIOSK: Jangan pernah buka Play Store. Blokir total!
             Toast.makeText(context, "Aplikasi tidak terpasang atau diblokir oleh sistem Kiosk!", Toast.LENGTH_SHORT).show()

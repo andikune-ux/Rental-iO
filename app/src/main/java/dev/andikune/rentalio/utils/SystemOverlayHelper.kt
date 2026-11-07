@@ -18,6 +18,7 @@ import android.widget.TextView
 object SystemOverlayHelper {
 
     private var countdownOverlayView: View? = null
+    private var floatingHomeView: View? = null
     private var windowManager: WindowManager? = null
 
     fun canDrawOverlays(context: Context): Boolean {
@@ -161,6 +162,126 @@ object SystemOverlayHelper {
                 wm.removeView(view)
             } catch (_: Exception) {}
             countdownOverlayView = null
+        }
+    }
+
+    /**
+     * Tombol Home Melayang (Floating Home Assist Button)
+     * Ditampilkan saat game/aplikasi sedang berjalan, agar penyewa bisa kembali
+     * ke launcher Rental.iO untuk memilih game lain tanpa perlu tombol Recents.
+     */
+    fun showFloatingHomeButton(context: Context) {
+        if (!canDrawOverlays(context)) return
+
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
+        val handler = Handler(Looper.getMainLooper())
+
+        handler.post {
+            if (floatingHomeView != null) return@post
+
+            val density = context.resources.displayMetrics.density
+            val btnSize = (52 * density).toInt()
+
+            val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
+
+            val params = WindowManager.LayoutParams(
+                btnSize,
+                btnSize,
+                layoutType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                x = (16 * density).toInt()
+                y = (100 * density).toInt()
+            }
+
+            val button = FrameLayout(context).apply {
+                val bg = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(Color.parseColor("#E60E1726"))
+                    setStroke((2 * density).toInt(), Color.parseColor("#00E5FF"))
+                }
+                background = bg
+                elevation = 10 * density
+
+                val icon = TextView(context).apply {
+                    text = "🏠"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+                addView(icon, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
+
+                var initialX = 0
+                var initialY = 0
+                var initialTouchX = 0f
+                var initialTouchY = 0f
+                var isDrag = false
+
+                setOnTouchListener { v, event ->
+                    when (event.action) {
+                        android.view.MotionEvent.ACTION_DOWN -> {
+                            initialX = params.x
+                            initialY = params.y
+                            initialTouchX = event.rawX
+                            initialTouchY = event.rawY
+                            isDrag = false
+                            true
+                        }
+                        android.view.MotionEvent.ACTION_MOVE -> {
+                            val dx = (event.rawX - initialTouchX).toInt()
+                            val dy = (event.rawY - initialTouchY).toInt()
+                            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                                isDrag = true
+                                params.x = initialX + dx
+                                params.y = initialY + dy
+                                try {
+                                    wm.updateViewLayout(v, params)
+                                } catch (_: Exception) {}
+                            }
+                            true
+                        }
+                        android.view.MotionEvent.ACTION_UP -> {
+                            if (!isDrag) {
+                                v.performClick()
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                }
+
+                setOnClickListener {
+                    try {
+                        val homeIntent = Intent(context, dev.andikune.rentalio.ui.MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        }
+                        context.startActivity(homeIntent)
+                    } catch (_: Exception) {}
+                }
+            }
+
+            try {
+                wm.addView(button, params)
+                floatingHomeView = button
+                windowManager = wm
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun hideFloatingHomeButton() {
+        val view = floatingHomeView ?: return
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val wm = windowManager ?: view.context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+                wm?.removeView(view)
+            } catch (_: Exception) {}
+            floatingHomeView = null
         }
     }
 }

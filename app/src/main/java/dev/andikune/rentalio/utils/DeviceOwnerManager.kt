@@ -33,9 +33,10 @@ class DeviceOwnerManager(private val context: Context) {
             val allPackages = (listOf(context.packageName) + whitelistedPackages).distinct().toTypedArray()
             dpm.setLockTaskPackages(adminComponent, allPackages)
 
-            // Configure lock task features: disable home, notifications, keyguard, system info
+            // Configure lock task features: izinkan tombol HOME agar penyewa bisa kembali ke launcher,
+            // tetapi TETAP MATIKAN Overview/Recents (LOCK_TASK_FEATURE_OVERVIEW tidak diaktifkan)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val flags = DevicePolicyManager.LOCK_TASK_FEATURE_NONE
+                val flags = DevicePolicyManager.LOCK_TASK_FEATURE_HOME
                 dpm.setLockTaskFeatures(adminComponent, flags)
             }
 
